@@ -5,8 +5,9 @@ from flask import Flask, request, jsonify
 import requests
 
 import os
+import json
 import joblib
-import numpy as np
+import numpy as np  
 import pandas as pd
 from dotenv import load_dotenv
 import util
@@ -27,6 +28,8 @@ class Config:
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
         }
+        self.predicted_result_template = os.path.join(
+            "predicted_results", "<id_card>_predicted_result.json")
         self.model_path_template = os.path.join(
             "prediction", "model", "<age_abb>") # only trained on behavioral data
         self.scaler_path_template = os.path.join(
@@ -285,6 +288,9 @@ def predict():
                     }
                     print(f"腦齡預測結果: {response['results']['brainAge']}")
                     print("‧★,:*:‧\(^o^)/‧:*‧°★*\n")
+
+                    with open(config.predicted_result_template.replace("<id_card>", config.data["id_card"]), 'w', encoding='utf-8') as f:
+                        json.dump(response, f, ensure_ascii=False)
 
                     return jsonify(response), 200
         
