@@ -47,7 +47,7 @@ class Config:
             ],
             "語言理解":  ["LANGUAGE_SPEECHCOMP_BEH_PASSIVE_ACCURACY"],
             "語言產出": ["LANGUAGE_READING_BEH_NULL_MeanSR"], 
-            "動作": []
+            "動作": ["MOTOR_GOFITTS_BEH_SLOPE_LeaveTime"]
         }
         self.using_percentile_prediction = True
         self.max_adjustment = 20 # years
@@ -186,10 +186,10 @@ def predict():
                     elif hasattr(model, 'feature_name_'):
                         platform_features = model.feature_name_
                     else:
-                        platform_features = util.init_platform_featuress
+                        platform_features = util.init_platform_features()
 
                     ## Update cognitive domain "動作"
-                    config.cognitive_domains["動作"] = [ col for col in platform_features if col.startswith("MOTOR_GOFITTS_BEH") ]
+                    # config.cognitive_domains["動作"] = [ col for col in platform_features if col.startswith("MOTOR_GOFITTS_BEH") ]
 
                     ## Prepare dataframe for prediction
                     DF = pd.DataFrame(index=range(1), columns=scaler.feature_names_in_)

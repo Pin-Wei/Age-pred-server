@@ -4,7 +4,7 @@ import pandas as pd
 class OspanProcessor:
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        self.trial_n = (4*3) + (6*3)
+        self.trial_n = (4*3) + (6*3) # There are 75 trials in the ospan task, but only 30 trials in the online version.
 
     def create_index(self, data, trial_n):
         output = list(data.index)
@@ -26,7 +26,7 @@ class OspanProcessor:
     def letter_analysis(self, data):
         output = data[['LetterResult']]
         output = self.select_item(output, self.trial_n)
-        return output.sum().values[0]
+        return output.mean().values[0]
 
     def process_subject(self, file_path):
         if not os.path.exists(file_path):
@@ -41,7 +41,7 @@ class OspanProcessor:
         output = pd.DataFrame({
             'ID': [id],
             'MEMORY_OSPAN_BEH_MATH_ACCURACY': [math_result],
-            'MEMORY_OSPAN_BEH_LETTER_ACCURACY': [letter_result*2.5]
-        }) # There are 75 trials in the ospan task, but only 30 trials in the online version. Therefore for the calculation of percentile rank which uses the distribution of "LETTER_COUNT" in quanta feature matrix, the behavioral result (letter_result) of online version is needed to be times 2.5 (30*2.5 = 75) to fit in the "LETTER_COUNT" distribution.
+            'MEMORY_OSPAN_BEH_LETTER_ACCURACY': [letter_result]
+        }) 
 
         return output

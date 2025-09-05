@@ -21,8 +21,8 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
     selected_fields = {
         "SID": data["id_card"], 
         "Name": data["name"], 
-        "Age": data["results"]["chronologicalAge"],
-        "Predicted Age": data["results"]["brainAge"],
+        "Chronological Age": data["results"]["chronologicalAge"],
+        "Brain Age": data["results"]["brainAge"],
         "PAD": data["results"]["originalPAD"],
         "Corrected PAD": data["results"]["ageCorrectedPAD"]
     }
