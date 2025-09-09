@@ -22,6 +22,9 @@
 # *.pkl
 *_log_file
 
+# Ignore participant information files
+server/subj_csv_files/*
+
 # Ignore data directories
 data/*
 

@@ -40,7 +40,7 @@ def get_uploaded_not_downloaded(not_downloaded_tokens, config, logger):
         logger.error(f"Failed to get media list: {res.status_code}")
         return []
 
-def update_is_file_ready(csv_filename, is_file_ready, logger):
+def update_is_file_ready(csv_filename, logger):
     res = requests.get(
         url=f"https://qoca-api.chih-he.dev/tasks?csv_filename={csv_filename}"
     )
@@ -55,13 +55,15 @@ def update_is_file_ready(csv_filename, is_file_ready, logger):
                 res = requests.put(
                     url=f"https://qoca-api.chih-he.dev/tasks/{task_id}", 
                     json={
-                        "is_file_ready": is_file_ready
+                        "is_file_ready": 1
                     }
                 )
                 if res.status_code == 200:
-                    logger.info(f"Successfully updated is_file_ready of task #{task_id} to 1.")
+                    logger.info(f"Successfully updated is_file_ready of task #{task_id} ({csv_filename}) to 1.")
                 else:
-                    logger.error(f"Failed to update is_file_ready of task #{task_id}: {res.status_code}")
+                    logger.error(f"Failed to update is_file_ready of task #{task_id} ({csv_filename}): {res.status_code}")
+        else:
+            logger.error(f"No task found for {csv_filename}")
     else:
         logger.error(f"Failed to assess report task status for {csv_filename}: {res.status_code}")
 
@@ -114,7 +116,7 @@ if __name__ == "__main__":
                 if subj not in csv_ready_marked_subjs:
                     csv_filename = not_ready_csv_filenames[subj]
                     update_is_file_ready(
-                        csv_filename, 1, logger
+                        csv_filename, logger
                     ) 
                     csv_ready_marked_subjs.append(subj)
             else:
