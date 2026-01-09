@@ -1,6 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import os
+import sys
 import logging
 import numpy as np
 import pandas as pd
@@ -42,6 +43,17 @@ class Config:
         self.exp_name_list = [self.exp_gofitt_name, self.exp_ospan_name, self.exp_speechcomp_name, self.exp_exclusion_name, self.exp_textreading_name]
         self.platform_features = util.init_platform_features()
         self.missing_marker = -999
+
+def setup_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    return logger
 
 def authenticate_gitlab(x_gitlab_token: str = Header(...)):
     if x_gitlab_token != 'tcnl-project':
@@ -213,10 +225,7 @@ def create_task(exam_id, csv_filename, config, logger):
 
 load_dotenv()
 config = Config()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)  
-
+logger = setup_logger()  
 app = FastAPI(docs_url=None)
 
 @app.get("/")
@@ -275,5 +284,5 @@ async def create_report(request: Request):
     else:
         raise HTTPException(status_code=422, detail="Failed to produce predict_result")
     
-if __name__ == "__main__":
+if __name__ == "__main__":  
     uvicorn.run(app, host="0.0.0.0", port=8000)

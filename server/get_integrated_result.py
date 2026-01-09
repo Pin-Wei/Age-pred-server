@@ -1,13 +1,14 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
+import os
+import json
+
+import uvicorn
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
-import uvicorn
-import os
-import logging
-import json
-from dotenv import load_dotenv
-from server import authenticate_gitlab
+
+from server import authenticate_gitlab, setup_logger
 
 class Config:
     def __init__(self):
@@ -21,10 +22,7 @@ class SubjectDownloadRequest(BaseModel):
 
 load_dotenv()
 config = Config()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)  
-
+logger = setup_logger()
 app = FastAPI(docs_url=None)
 
 @app.post("/get_integrated_result")

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # This script is used to create a pseudo commit from Pavlovia GitLab to local /webhook endpoint,
 # so that the server.py can be triggered to download and process the data.

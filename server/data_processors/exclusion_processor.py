@@ -40,18 +40,18 @@ class ExclusionProcessor:
         cue_3 = self.rt_calculation_stimulus(data[data.number_of_cue_t == 3])
         return {'Cue_1': cue_1, 'Cue_2': cue_2, 'Cue_3': cue_3}
 
-    def rate_calculation_stimulus(self, data):
+    def rate_calculation_stimulus(self, input_data):
         output = []
         for each in [1, 2, 3]:  # Target/Non-target/New item
-            data = data[data.stimuli_t == each]
-            yes_rate = data[data.key_resp_keys == 's'].shape[0] / data.shape[0] if data.shape[0] > 0 else 0
+            data = input_data[input_data.stimuli_t == each]
+            yes_rate = data[data.key_resp_keys == 's'].shape[0] / data.shape[0] # if data.shape[0] > 0 else 0
             output.append(yes_rate)
         return output
 
-    def rate_calculation_stimulus_cue(self, data):
+    def rate_calculation_stimulus_cue(self, input_data):
         output = []
         for each in [1, 2, 3]:  # Cue 1/2/3
-            data = data[data.number_of_cue_t == each]
+            data = input_data[input_data.number_of_cue_t == each]
             yes_rate = self.rate_calculation_stimulus(data)
             output.extend(yes_rate)
         return output

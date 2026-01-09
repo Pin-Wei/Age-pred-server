@@ -1,20 +1,15 @@
-#!/usr/bin/python
-
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from pydantic import BaseModel
-import requests
-import uvicorn
+#!/usr/bin/env python
 
 import os
 import glob
-import json
-import logging
-import numpy as np
+
+import uvicorn
 import pandas as pd
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI
+from pydantic import BaseModel
 
-import util
-from server import Config, authenticate_gitlab, convert_np_types, update_json_result
+from server import Config, authenticate_gitlab, update_json_result, setup_logger
 from data_processors.textreading_processor import TextReadingProcessor
 
 class SubjectReprocessRequest(BaseModel):
@@ -101,6 +96,9 @@ def process_text_reading(subject_id: str, csv_filename: str, config, logger) -> 
 
 ## ====================================================================================
 
+load_dotenv()
+config = Config()
+logger = setup_logger()
 app = FastAPI(docs_url=None)
 
 @app.post("/process_textreading")
@@ -112,10 +110,4 @@ async def reprocess_subject(request: SubjectReprocessRequest, token: str = Depen
     return result
 
 if __name__ == "__main__":
-    load_dotenv()
-    config = Config()
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)  
-
     uvicorn.run(app, host="0.0.0.0", port=6666)

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # The purpose of this script is to generate age predictions using data from a CSV file.
 # To be more specific, this script reads the ~400 participants data matrix, predict their brain age, and save the results to a CSV table.

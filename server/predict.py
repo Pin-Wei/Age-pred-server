@@ -1,24 +1,21 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-from flask import Flask, request, jsonify
-import requests
 
 import os
 import json
+import logging
+import warnings
+from datetime import datetime
+
 import joblib
+import requests
 import numpy as np  
 import pandas as pd
 from dotenv import load_dotenv
-import util
-
-import logging
-logging.basicConfig(level=logging.INFO)
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-
-import warnings
+from flask import Flask, request, jsonify
 from sklearn.exceptions import InconsistentVersionWarning
-warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
+import util
 
 class Config:
     def __init__(self):
@@ -64,6 +61,14 @@ class Config:
             "name": "", 
             "test_date": ""
         }        
+
+def setup_logger():
+    logger = logging.getLogger("werkzeug")
+    logger.setLevel(logging.ERROR)
+    logger.propagate = False
+
+def ignore_warnings():
+    warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 
 def correct_age_with_percentile(config, true_age, prediction, domain_score_list):    
     ## Define the age group and the corresponding median age of the participant
@@ -127,7 +132,8 @@ def correct_age_with_table(config, true_age, prediction):
 
 load_dotenv()
 config = Config()
-
+logger = setup_logger()
+ignore_warnings()
 app = Flask(__name__)
 
 @app.route('/predict', methods=['POST'])
@@ -143,8 +149,8 @@ def predict():
         
         else:
             config.data.update(data)
-            print("\nReceived input data at /predict:")
-            print(data)
+            now = datetime.now()
+            print(f"\n{now.strftime('%Y-%m-%d %H:%M:%S')} Received predict request for subject ID: {data['id_card']}")
                  
             try:
                 ## Post request to get integrated_result.json via get_integrated_result.py   
@@ -155,14 +161,13 @@ def predict():
                         "subject_id": data['id_card']
                     }                    
                 )
-                print(f"\nPost request to get integrated result...")
+                print(f"\nPost request to /get_integrated_result ...")
 
                 if feats.status_code != 200:
-                    print(f"Failed to get integrated result for subject ID: {data['id_card']}")
-                    return jsonify({"error": f"HTTP error: {feats.status_code}"}), feats.status_code
+                    return jsonify({"error": "Failed to get integrated result"}), feats.status_code
                 
                 else:
-                    print(f"Successfully got integrated result for subject ID: {data['id_card']}")
+                    print("Successfully got integrated result.")
                     result = feats.json()                
                     config.data["features"] = result.get("integrated_result", {})
                 
@@ -336,31 +341,19 @@ def process_textreading_proxy():
 
 @app.errorhandler(400)
 def bad_request(e):
-    raw_data = request.get_data(as_text=False)
-
-    if raw_data[:1] == b'\x16': # looks like a TLS/SSL handshake
-        msg = f"HTTPS-like request to HTTP server from {request.remote_addr}"
-        app.logger.warning(msg)
-        return jsonify({"error": "Use HTTP instead of HTTPS."}), 400
-    
-    elif raw_data[:1] == b'\x00':
-        msg = f"Invalid HTTP/0.9 request from {request.remote_addr}"
-        app.logger.warning(msg)
-        return jsonify({"error": "Bad HTTP version."}), 400
-    
+    raw = request.get_data(cache=False) or b""
+    b0 = raw[:1]
+    if b0 == b"\x16" or b0 == b"\x80":
+        reason, msg = "tls_to_http", "Client sent TLS/HTTPS to an HTTP endpoint."
+    elif b0 == b"\x00":
+        reason, msg = "invalid_http", "Invalid/legacy HTTP payload."
     else:
-        msg = f"Bad Request from {request.remote_addr} using {request.method}"
-        app.logger.warning(msg)
-        return jsonify({"error": "Malformed request."}), 400
+        reason, msg = "malformed", "Malformed request."
+    return jsonify({"error": {"type": "bad_request", "reason": reason, "message": msg}}), 400
 
 @app.errorhandler(404)
 def not_found(e):
-    msg = (
-        f"Not found: {request.path} from {request.remote_addr}"
-    )
-    app.logger.warning(msg)
-    return jsonify({"error": f"Path {request.path} not found."}), 404
+    return jsonify({"error": {"type": "not_found", "path": request.path}}), 404
 
 if __name__ == "__main__":
-    print("Starting Flask server...")
     app.run(host='0.0.0.0', port=8888)
