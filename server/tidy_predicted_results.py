@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 data_rows = []
+execute_patches = False
 
 for fp in glob.glob(os.path.join("predicted_results", "*.json")):
 
@@ -20,9 +21,10 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
         and not os.path.basename(fp).startswith("65010001-1")
     ):
         continue 
-
+    
     subject_id = os.path.basename(fp).split("_")[0]
-    subprocess.run(["python", "patches.py", subject_id])
+    if execute_patches:
+        subprocess.run(["python", "patches.py", subject_id])
 
     with open(fp, "r", encoding="utf-8") as f:
         data = json.load(f)

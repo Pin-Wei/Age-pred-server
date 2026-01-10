@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# This script is used to re-process text reading files and was called by the tidy_predicted_results.py
+# Usage: python patches.py <subject_id>
+
 import os
 import sys
 import glob
@@ -37,15 +40,15 @@ if __name__ == "__main__":
     )
     subject_id = sys.argv[1]
 
-    ## In case is_file_ready has not been marked as 1:
+    ## Check if text_reading files exist:
     main_csv_files = glob.glob(os.path.join(config.data_dir, config.exp_textreading_name, f"{subject_id}_*Z.csv"))
-    
     if not main_csv_files:
         print(f"No text_reading files for subject {subject_id}")
         sys.exit(1)
 
-    csv_filename = os.path.basename(main_csv_files[0])
-    update_is_file_ready(csv_filename, logger)
+    # ## In case is_file_ready has not been marked as 1:
+    # csv_filename = os.path.basename(main_csv_files[0])
+    # update_is_file_ready(csv_filename, logger)
 
     ## Calculate mean speech rate:
     aud_csv_files = list(
