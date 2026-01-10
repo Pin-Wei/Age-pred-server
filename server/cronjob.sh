@@ -4,16 +4,16 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd );
 PYTHON_EXE="$SCRIPT_DIR/../venv/bin/python"
-LOG_FILE_1="$SCRIPT_DIR/../logs/cronjob_download_textReading_files.log"
+LOG_FILE_1="$SCRIPT_DIR/../logs/cronjob_download_textreading_files.log"
 LOG_FILE_2="$SCRIPT_DIR/../logs/cronjob_process_tasks.log"
-COMMAND_DOWNLOAD_TEXTREADING_FILES="$PYTHON_EXE $SCRIPT_DIR/download_textReading_files.py >> $LOG_FILE_1 2>&1"
+COMMAND_DOWNLOAD_TEXTREADING_FILES="$PYTHON_EXE $SCRIPT_DIR/download_textreading_files.py >> $LOG_FILE_1 2>&1"
 COMMAND_PROCESS_TASKS="$PYTHON_EXE $SCRIPT_DIR/process_tasks.py >> $LOG_FILE_2 2>&1"
 
 case "$1" in
     list) crontab -l;
         ;;
     enable)
-        if [ "$2" == "download_textReading_files" ]
+        if [ "$2" == "download_textreading_files" ]
         then
             echo "enable cronjob: $COMMAND_DOWNLOAD_TEXTREADING_FILES";
             (crontab -l ; echo "0 */12 * * * $COMMAND_DOWNLOAD_TEXTREADING_FILES") | crontab -
@@ -26,7 +26,7 @@ case "$1" in
         fi
         ;;
     disable)
-        if [ "$2" == "download_textReading_files" ]
+        if [ "$2" == "download_textreading_files" ]
         then
             echo "disable cronjob: $COMMAND_DOWNLOAD_TEXTREADING_FILES";
             crontab -l | grep -v "$COMMAND_DOWNLOAD_TEXTREADING_FILES"  | crontab -

@@ -41,6 +41,7 @@ def process_text_reading(subject_id: str, csv_filename: str, config, logger) -> 
             
             pattern = f"{subject_id}_TextReading_{test_date}_recording_mic_*.webm"
             audio_files = list(glob.glob(os.path.join(config.data_dir, config.exp_textreading_name, pattern)))
+            audio_files = [ f for f in audio_files if "practice_loop" not in f ]  # exclude practice files
 
             if not audio_files:
                 result["message"] = f"No audio files found for subject {subject_id} on date {test_date}"
@@ -67,6 +68,7 @@ def process_text_reading(subject_id: str, csv_filename: str, config, logger) -> 
                             result["message"] = "Failed to calculate mean speech rate. "
                         elif pd.isna(mean_speech_rate) or mean_speech_rate == float('inf'):
                             mean_speech_rate = config.missing_marker
+                            logger.warning(f"\nInvalid mean speech rate for subject {subject_id}: {mean_speech_rate}")
                         else:
                             logger.info(f"\nMean speech rate for subject {subject_id}: {mean_speech_rate}")
                             result_df = pd.DataFrame({

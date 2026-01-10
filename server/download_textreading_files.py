@@ -48,8 +48,8 @@ def update_is_file_ready(csv_filename, logger):
         json_data = res.json()
 
         if len(json_data['items']) > 0:
-            task_id = json_data['items'][0]['id']
-            status = json_data['items'][0]['status']
+            task_id = json_data['items'][-1]['id']
+            status = json_data['items'][-1]['status']
 
             if status == 0: # report is not generated yet 
                 res = requests.put(

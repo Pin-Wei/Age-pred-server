@@ -4,6 +4,7 @@ import os
 import re
 import json
 import glob
+import subprocess
 import numpy as np
 import pandas as pd
 
@@ -19,6 +20,9 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
         and not os.path.basename(fp).startswith("65010001-1")
     ):
         continue 
+
+    subject_id = os.path.basename(fp).split("_")[0]
+    subprocess.run(["python", "patches.py", subject_id])
 
     with open(fp, "r", encoding="utf-8") as f:
         data = json.load(f)

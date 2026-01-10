@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
 import os
-from datetime import datetime
 import logging
+from datetime import datetime
+
 import requests
 from dotenv import load_dotenv
 
@@ -17,6 +18,16 @@ class Config:
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
         }
+
+def setup_logger():
+    logging.root.handlers = []
+    logging.basicConfig(
+        level=logging.INFO, 
+        filename=os.path.join(config.log_dir, datetime.now().strftime(config.log_fn_format)), 
+        format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)4d: %(message)s"
+    )
+    logger = logging.getLogger(__name__)    
+    return logger
 
 def execute_process_textreading(subject_id, csv_filename, config, logger): 
     res = requests.post(
@@ -86,14 +97,7 @@ def update_predict_result(exam_id, predict_result, logger):
 if __name__ == "__main__":
     load_dotenv()
     config = Config()
-    
-    logging.root.handlers = []
-    logging.basicConfig(
-        level=logging.INFO, 
-        filename=os.path.join(config.log_dir, datetime.now().strftime(config.log_fn_format)), 
-        format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)4d: %(message)s"
-    )
-    logger = logging.getLogger(__name__)    
+    logger = setup_logger()
     
     ## Search for tasks that need to be processed (is_file_ready=1 & status=0)
     res = requests.get(
