@@ -27,6 +27,7 @@ server/subj_csv_files/*
 
 # Ignore data directories
 data/*
+data/TextReading2025/*
 
 # Keep the @whisper_venv folder
 !/@whisper_venv/

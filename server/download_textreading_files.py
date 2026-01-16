@@ -18,6 +18,41 @@ class Config:
             "oauthToken": self.gitlab_token
         }
         self.data_dir = os.path.join(self.source_dir, "..", "data", self.experiment_name)
+        self.subj_webm_downloaded = os.path.join(self.data_dir, "subj_webm_downloaded.txt")
+        self.subj_webm_ignored = os.path.join(self.data_dir, "subj_webm_ignored.txt")
+
+def list_awaiting_files(config, logger):
+    csv_files = glob.glob(os.path.join(config.data_dir, "*Z.csv")) # raw experimental data
+    subj_list = [ os.path.basename(f).split("_")[0] for f in csv_files ]
+    webm_files = glob.glob(os.path.join(config.data_dir, "*.webm")) # raw audio data
+    subj_of_webm = [ os.path.basename(f).split("_")[0] for f in webm_files ]
+    try:
+        subj_webm_downloaded = ( # subjects marked as having downloaded their webm files
+            pd.read_csv(config.subj_webm_downloaded, header=None)
+            .values.flatten().tolist()
+        ) 
+    except:
+        subj_webm_downloaded = []
+    try:
+        subj_webm_ignored = ( # subjects marked as not needing to download their webm files
+            pd.read_csv(config.subj_webm_ignored, header=None)
+            .values.flatten().tolist()
+        ) 
+    except:
+        subj_webm_ignored = []
+
+    subj_awaiting = list(set(subj_list) - set(subj_webm_downloaded) - set(subj_webm_ignored))
+    not_ready_csv_filepaths = {}
+    for subj in subj_awaiting:
+        num_of_webm = subj_of_webm.count(subj) # a subject should have at least 8 webm files
+        if num_of_webm < 8: 
+            logger.info(f"Subject {subj} has {num_of_webm} webm files. Need at least 8.")
+            not_ready_csv_filepaths[subj] = next(f for f in csv_files if os.path.basename(f).startswith(subj)) 
+        else: 
+            with open(config.subj_webm_downloaded, "a") as f:
+                f.write(f"{subj}\n")
+
+    return not_ready_csv_filepaths
 
 def get_uploaded_not_downloaded(not_downloaded_tokens, config, logger):
     res = requests.get(
@@ -74,33 +109,28 @@ if __name__ == "__main__":
     config = Config()
 
     logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)  
+    logger = logging.getLogger(__name__)
 
-    csv_files = glob.glob(os.path.join(config.data_dir, "*.csv"))
-    subj_list = [ os.path.basename(f).split("_")[0] for f in csv_files ]
-
-    webm_files = glob.glob(os.path.join(config.data_dir, "*.webm"))
-    webm_subj_list = [ os.path.basename(f).split("_")[0] for f in webm_files ]
-    webm_subj_list = list(set(webm_subj_list))
-
-    no_webm_subjs = list(set(subj_list) - set(webm_subj_list))
-    logger.info(f"{len(no_webm_subjs)} subjects do not have .webm files yet, start downloading...")
+    not_ready_csv_filepaths = list_awaiting_files(config, logger)
+    logger.info(f"Start downloading .webm files for {len(not_ready_csv_filepaths)} subjects ...")
 
     not_downloaded_tokens = []
-    not_ready_csv_filenames = {}
-    for subj in no_webm_subjs:
-        csv_filepath = glob.glob(os.path.join(config.data_dir, f"{subj}_*Z.csv"))[0]
+    for subj, csv_filepath in not_ready_csv_filepaths:
         df = pd.read_csv(csv_filepath)
-        session_token = df["sessionToken"].values[0]
-        not_downloaded_tokens.append(session_token)
-        not_ready_csv_filenames[subj] = os.path.basename(csv_filepath)
+        try:
+            session_token = df["sessionToken"].values[0]
+            not_downloaded_tokens.append(session_token)
+        except:
+            logger.warning(f"Failed to get sessionToken for {subj}")
+            not_ready_csv_filepaths.pop(subj)
+            with open(config.subj_webm_ignored, "a") as f:
+                f.write(f"{subj}\n")
 
-    urls_to_download = get_uploaded_not_downloaded(
-        not_downloaded_tokens, config, logger
-    )
+    urls_to_download = get_uploaded_not_downloaded(not_downloaded_tokens, config, logger)
 
-    csv_ready_marked_subjs = []
-    if len(urls_to_download) > 0:
+    if urls_to_download: # not empty list
+        readied_csv_filenames = []
+
         for file_url in urls_to_download:
             res = requests.get(file_url, stream=True)
 
@@ -113,13 +143,11 @@ if __name__ == "__main__":
                 logger.info(f"Downloaded: {file_url}")
 
                 subj = file_name.split("_")[0]
-                if subj not in csv_ready_marked_subjs:
-                    csv_filename = not_ready_csv_filenames[subj]
-                    update_is_file_ready(
-                        csv_filename, logger
-                    ) 
-                    csv_ready_marked_subjs.append(subj)
+                if subj not in readied_csv_filenames:
+                    csv_filename = os.path.basename(not_ready_csv_filepaths[subj])
+                    update_is_file_ready(csv_filename, logger) 
+                    readied_csv_filenames.append(subj)
             else:
                 logger.info("Failed to download. Status code:", res.status_code)
-    # else:
-    #     logger.info(f"No new files to download.")
+    else:
+        logger.info(f"No new files to download.")

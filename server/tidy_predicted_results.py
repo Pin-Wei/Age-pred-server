@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 import json
 import glob
 import subprocess
@@ -9,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 data_rows = []
-execute_patches = False
+subjs_need_patches = sys.argv[1:]
 
 for fp in glob.glob(os.path.join("predicted_results", "*.json")):
 
@@ -23,9 +24,13 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
         continue 
     
     subject_id = os.path.basename(fp).split("_")[0]
+
+    ## Executing patches.py if specified in the command line
+    execute_patches = True if subject_id in subjs_need_patches else False
     if execute_patches:
         subprocess.run(["python", "patches.py", subject_id])
 
+    ## Loading the {subject_id}_predicted_results.json file:
     with open(fp, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -37,7 +42,7 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
     ## Extracting the necessary fields from the JSON data:
     selected_fields = {
         "Date": data["testDate"], 
-        "SID": data["id_card"], 
+        "SID": data["id_card"], # subject_id
         "Name": data["name"], 
         "Age": data["results"]["chronologicalAge"],
         "Brain Age": data["results"]["brainAge"],
@@ -45,7 +50,6 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
         "Corrected PAD": data["results"]["ageCorrectedPAD"]
     }
     selected_fields.update(cognitive_functions)
-    # selected_fields["Avg"] = np.mean([ v for v in cognitive_functions.values() if v != -1 ])
     selected_fields["Avg"] = np.mean(list(cognitive_functions.values())) if not any(v == -1 for v in cognitive_functions.values()) else -1
 
     ## Adding platform features:

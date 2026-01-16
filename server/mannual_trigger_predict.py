@@ -23,8 +23,11 @@ class Config:
             "Content-Type": "application/json"
         }
 
-def pseudo_predict(config, sid, age):
-    now = datetime.now(timezone.utc)
+def pseudo_predict(config, sid, age, test_date=None):
+    if test_date is None:
+        now = datetime.now(timezone.utc)
+        test_date = now.strftime('%Y-%m-%dT%H%M%S.') + f"{int(now.microsecond / 1000):03d}Z"
+
     res = requests.post(
         url=config.predict_url, 
         headers=config.local_headers, 
@@ -32,7 +35,7 @@ def pseudo_predict(config, sid, age):
             "age": age,
             "id_card": sid,
             "name": sid,
-            "test_date": now.strftime('%Y-%m-%dT%H%M%S.') + f"{int(now.microsecond / 1000):03d}Z"
+            "test_date": test_date
         }
     )
     if res.status_code == 200:
