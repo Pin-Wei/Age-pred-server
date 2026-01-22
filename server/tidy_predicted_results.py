@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# This script reads the predicted_results.json and integrated_results.json files of all participants, and then organizes them into a table
+# The script also executes patches.py if any subject_id is specified in the command line
+# Usage: python tidy_predicted_results.py <subject_id1> <subject_id2> ...
+
 import os
 import re
 import sys
@@ -25,7 +29,7 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
     
     subject_id = os.path.basename(fp).split("_")[0]
 
-    ## Executing patches.py if specified in the command line
+    ## Executing patches.py if specified:
     execute_patches = True if subject_id in subjs_need_patches else False
     if execute_patches:
         subprocess.run(["python", "patches.py", subject_id])

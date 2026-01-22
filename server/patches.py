@@ -72,6 +72,7 @@ if __name__ == "__main__":
     
     if not aud_csv_files: # should not happen
         logger.warning("Something went wrong. Goodbye :-(")
+        print("You may check whether the audio files have been downloaded for the participant.")
         sys.exit(1)
 
     ## Calculate mean speech rate:

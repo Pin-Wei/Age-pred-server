@@ -115,7 +115,7 @@ if __name__ == "__main__":
     logger.info(f"Start downloading .webm files for {len(not_ready_csv_filepaths)} subjects ...")
 
     not_downloaded_tokens = []
-    for subj, csv_filepath in not_ready_csv_filepaths:
+    for subj, csv_filepath in not_ready_csv_filepaths.items():
         df = pd.read_csv(csv_filepath)
         try:
             session_token = df["sessionToken"].values[0]
