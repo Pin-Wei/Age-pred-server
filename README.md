@@ -39,7 +39,7 @@ The list of participants and their associated email addresses is stored in CSV f
   - Downloads the WebM audio files.
   - Sends a GET request to the API endpoint `https://qoca-api.chih-he.dev/tasks?csv_filename=< CSV_FILENAME>` to check if the report generation task exists.
   - If the task exists and its `status` is `0`, sends a PUT request to the API endpoint `https://qoca-api.chih-he.dev/tasks/<TASK_ID>` to update the `is_file_ready` status from `0` to `1`.
-### `process_text_reading.py`
+### `process_textreading.py`
 - Serves the `/process_textreading` local endpoint:
   - Processes the WebM audio files with the imported `TextReadingProcessor` object and computes task metrics.
   - Updates the result into the participant's JSON file (`<SUBJECT_ID>_integrated_result.json`).
@@ -47,7 +47,7 @@ The list of participants and their associated email addresses is stored in CSV f
 - Periodically executed by `cronjob.sh`:
   - Sends a GET request with query parameters to an external API (`https://qoca-api.chih-he.dev/tasks?is_file_ready=1&status=0`) to search for report generation tasks that need to be completed.
   - For each task:
-    - Sends a POST request to the `/process_textreading` local endpoint to trigger the execution of `process_text_reading.py`.
+    - Sends a POST request to the `/process_textreading` local endpoint to trigger the execution of `process_textreading.py`.
     - Sends a GET request to an external API (`https://qoca-api.chih-he.dev/user/<SUBJECT_ID>`) to retrieve the participant's user info.
     - Sends a POST request to the `/predict` local endpoint (re-predict brain age with *TextReading* metric included) and receives a JSON format `predict_result`.
     - Sends a PUT request to the API `https://qoca-api.chih-he.dev/tasks/<TASK_ID>` to update `status` to `1`.
@@ -67,7 +67,7 @@ The list of participants and their associated email addresses is stored in CSV f
 
 # Usage:
 1. `cd server`
-2. Executes `start.sh`, `process_text_reading.py`, `get_integrated_result.py`, and `predict.py` to create corresponding server endpoints.
+2. Executes `start.sh`, `process_textreading.py`, `get_integrated_result.py`, and `predict.py` to create corresponding server endpoints.
 3. Executes `./cronjob.sh enable download_textReading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textReading_files` and `./cronjob.sh disable process_tasks`)
 
 # Workflow:
