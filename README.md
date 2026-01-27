@@ -30,8 +30,8 @@ The list of participants and their associated email addresses is stored in CSV f
 ### `cronjob.sh`
 - Schedule routine background jobs with the `corntab` command:
   - Executes `process_tasks.py` every **20 minutes**.
-  - Executes `download_textReading_files.py` every **12 hours**.
-### `download_textReading_files.py`
+  - Executes `download_textreading_files.py` every **12 hours**.
+### `download_textreading_files.py`
 - Periodically executed by `cronjob.sh`:
   - Identifies participants with CSV but missing WebM audio files (--> have not been downloaded yet).
   - Extracts these participants' `sessionToken` from their CSV files.
@@ -68,7 +68,7 @@ The list of participants and their associated email addresses is stored in CSV f
 # Usage:
 1. `cd server`
 2. Executes `start.sh`, `process_textreading.py`, `get_integrated_result.py`, and `predict.py` to create corresponding server endpoints.
-3. Executes `./cronjob.sh enable download_textReading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textReading_files` and `./cronjob.sh disable process_tasks`)
+3. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
 
 # Workflow:
 
