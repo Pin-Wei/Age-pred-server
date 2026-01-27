@@ -236,37 +236,31 @@ def read_root():
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks, token: str = Depends(authenticate_gitlab)):
     body = await request.json()
     commits = body.get("commits", [])
-    print(f"Received {len(commits)} commits")
     
     project_name = body["project"]["name"]
     project_id = body["project"]["id"]
+    logger.info(f"Received {len(commits)} commits from project {project_name} ({project_id})")
 
     for commit in commits:
-        if commit["title"].endswith(".csv") and commit["author"]["name"] == "Pavlovia Committer":
-            filename = os.path.basename(commit["added"][0])
-            logger.info(f"Receiving file: {filename} from project {project_name} ({project_id})")
-            
-            # try:
-            #     if commit["note"] == "a fake commit":
-            #         filepath = os.path.join(config.data_dir, project_name, filename)
-            #         print("This commit is send from 'pseudo_commit.py'")
-            #     else:
-            #         raise KeyError
-            # except KeyError:
-            filepath = fetch_file(project_name, project_id, filename, config, logger)    
-            
-            process_file(project_name, filepath, config, logger)
+        if commit["author"]["name"] == "Pavlovia Committer":
+            if commit["title"].endswith(".csv"): 
+                filename = os.path.basename(commit["added"][0])
+                logger.info(f"Fetching file: {filename}")
+                filepath = fetch_file(project_name, project_id, filename, config, logger)    
+                process_file(project_name, filepath, config, logger)
 
-            if project_name == config.exp_textreading_name:
-                subject_id = os.path.basename(filepath).split('_')[0]
-                predict_result = predict(subject_id, config, logger)
-                # print(predict_result)
-                if predict_result:
-                    exam_id = upload_exam(predict_result, config, logger)
-                    if exam_id:
-                        create_task(exam_id, filename, config, logger)
+                if project_name == config.exp_textreading_name:
+                    subject_id = os.path.basename(filepath).split('_')[0]
+                    predict_result = predict(subject_id, config, logger)
+                    if predict_result:
+                        exam_id = upload_exam(predict_result, config, logger)
+                        if exam_id:
+                            create_task(exam_id, filename, config, logger)
 
-            return {"status": "ok", "fetched_file": filename}        
+                return {"status": "ok", "fetched_file": filename}
+            else:
+                logger.info(f"Ignoring non-CSV file commit: {commit['title']}")
+                return {"status": "ignored", "reason": "non-CSV file"}
         else:
             logger.error(f"No valid commit found in the webhook payload")
             raise HTTPException(status_code=404, detail="No valid commit found!")
