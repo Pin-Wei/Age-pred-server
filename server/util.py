@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 def init_platform_features():
-
-    PLATFORM_FEATURES = [
+    return [
         "MOTOR_GOFITTS_BEH_ID1_LeaveTime", 
         "MOTOR_GOFITTS_BEH_ID2_LeaveTime", 
         "MOTOR_GOFITTS_BEH_ID3_LeaveTime", 
@@ -65,5 +64,3 @@ def init_platform_features():
         "LANGUAGE_SPEECHCOMP_BEH_PASSIVE_RT", 
         "LANGUAGE_READING_BEH_NULL_MeanSR"
     ]   
-
-    return PLATFORM_FEATURES
