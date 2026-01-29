@@ -1,53 +1,11 @@
-# Ignore CSV files
-*.csv
 
-# Ignore WebM files
-*.webm
+**/__pycache__/
 
-# Ignore WAV files
-*.wav
 
-# Ignore JSON files
-*.json
-
-# Ignore ZIP files
-*.zip
-
-# Ignore specific file patterns
-*_TextReading_*.csv
-*_exclusion_*.csv
-*_OspanTask_*.csv
-*_SpeechComp_*.csv
-*_GoFitts_*.csv
-# *.pkl
-*_log_file
-
-# Ignore participant information files
-server/subj_csv_files/*
-
-# Ignore data directories
 data/*
-data/TextReading2025/*
-
-# Keep the @whisper_venv folder
-!/@whisper_venv/
-
-# Ignore Python cache files
-__pycache__/
-*.py[cod]
-
-# Ignore environment files
-.env
-
-# Ignore log files
-*.log
-*.log.gz
-*.sd3
-
-# Ignore OS generated files
-.DS_Store
-Thumbs.db
-
-# keep data directories
-!data/*/
-!data/*/.gitkeep
+logs/*
+server/subj_csv_files/*
+server/predicted_results/*
+server/integrated_results/*
+server/ARCHIVED/*
+server/.env
