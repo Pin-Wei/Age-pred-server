@@ -96,7 +96,7 @@ The list of participants and their associated email addresses is stored in CSV f
 - Defines `GITLAB_TOKEN`, `QOCA_TOKEN`, the name and ID of Pavlovia experiments (`EXPERIMENT_*_NAME` and `EXPERIMENT_*_ID`), as well as the URLs of the local endpoints (`WEBHOOK_URL`, `PROCESS_TEXTREADING_URL`, `GET_INTEGRATED_RESULT_URL`, and `PREDICT_URL`).
 
 # Usage:
-1. Executes `start.sh`, `get_integrated_result.py`, and `predict.py` under virtual environment `quanta` (`conda activate quanta`).
-3. Executes `process_textreading.py` under another virtual environment `whisper_env`.
-4. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
+1. Activate the virtual environment created using `requirements.txt` (e.g., `conda activate <ENV_NAME>`) and direct to the folder `server` (`cd server`).
+2. Executes `start.sh`, `get_integrated_result.py`, `predict.py`, and `process_textreading.py` to create corresponding server endpoints.
+3. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
 
