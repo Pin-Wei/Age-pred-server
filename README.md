@@ -97,9 +97,9 @@ The list of participants and their associated email addresses is stored in CSV f
 
 # Usage:
 1. Activate the virtual environment created using `requirements.txt` (e.g., `conda activate <ENV_NAME>`) and direct to the folder `server` (`cd server`).
-2. Executes `start.sh`, `get_integrated_result.py`, `predict.py`, and `process_textreading.py` to create corresponding server endpoints.
+2. Executes `bash start.sh`, `python get_integrated_result.py`, `python predict.py`, and `python process_textreading.py` to create corresponding server endpoints.
 3. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
 
 # Preparation
 - Create a conda environment with necessary packages installed using `conda env create -f environment.yml`
-- If failed, try `prepare_env.sh`
+- If failed, try `bash prepare_env.sh`
