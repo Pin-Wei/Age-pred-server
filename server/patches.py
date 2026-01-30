@@ -15,7 +15,7 @@ import util
 from server import update_json_result, setup_logger, predict, upload_exam
 from download_textreading_files import update_is_file_ready
 from process_tasks import execute_process_textreading
-from data_processors.textreading_processor import TextReadingProcessor
+# from data_processors.textreading_processor import TextReadingProcessor
 
 class Config:
     def __init__(self):
@@ -46,9 +46,7 @@ if __name__ == "__main__":
     load_dotenv()
     config = Config()
     logger = setup_logger()
-    text_reading_processor = TextReadingProcessor(
-        data_dir=os.path.join(config.data_dir, config.exp_textreading_name)
-    )
+
     subject_id = sys.argv[1]
     print(f"\n---  {subject_id} ---\n")
 
@@ -71,23 +69,27 @@ if __name__ == "__main__":
         aud_csv_files = get_aud_csv_files(subject_id, config)
     
     if not aud_csv_files: # should not happen
-        logger.warning("Something went wrong. Goodbye :-(")
-        print("You may check whether the audio files have been downloaded for the participant.")
+        logger.warning("Something went wrong." + 
+                       "\nYou may check whether the audio files have been downloaded for the participant." + 
+                       "\nGoodbye :-(")
         sys.exit(1)
 
-    ## Calculate mean speech rate:
-    mean_speech_rate = text_reading_processor.calculate_mean_syllable_speech_rate(aud_csv_files)
+    # ## Calculate mean speech rate:
+    # text_reading_processor = TextReadingProcessor(
+    #     data_dir=os.path.join(config.data_dir, config.exp_textreading_name)
+    # )
+    # mean_speech_rate = text_reading_processor.calculate_mean_syllable_speech_rate(aud_csv_files)
 
-    if pd.isna(mean_speech_rate) or mean_speech_rate == float('inf'):
-        logger.warning("No valid speech rate calculated. Goodbye :-(")
-        sys.exit(1)
-    else:
-        logger.info(f"Mean speech rate is {mean_speech_rate}")
-        result_df = pd.DataFrame({
-            'ID': [subject_id],
-            'LANGUAGE_READING_BEH_NULL_MeanSR': [mean_speech_rate]
-        })
-        update_json_result(subject_id, result_df, config, logger)
+    # if pd.isna(mean_speech_rate) or mean_speech_rate == float('inf'):
+    #     logger.warning("No valid speech rate calculated. Goodbye :-(")
+    #     sys.exit(1)
+    # else:
+    #     logger.info(f"Mean speech rate is {mean_speech_rate}")
+    #     result_df = pd.DataFrame({
+    #         'ID': [subject_id],
+    #         'LANGUAGE_READING_BEH_NULL_MeanSR': [mean_speech_rate]
+    #     })
+    #     update_json_result(subject_id, result_df, config, logger)
 
     ## Re-generate predict result:
     predict_result = predict(subject_id, config, logger)
