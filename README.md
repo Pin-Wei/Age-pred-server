@@ -12,13 +12,14 @@ The list of participants and their associated email addresses is stored in CSV f
 
 # Component Breakdown:
 ### `start.sh`
-- Entrypoint script that launches the FastAPI server (`server.py`).
+- Entrypoint script for `server.py`.
+
 ### `server.py`
 - Serves the `/webhook` endpoint that listens for webhook events from the Pavlovia GitLab project repositories:
   - When the webhook is triggered by a CSV file upload event:
     - Fetches the CSV file into the `data/<EXPERIMENT_NAME>` directory.
     - If it is **not** from the *TextReading* project:
-      - Processes the CSV file with the `TaskIntegrator` object, which calls the appropriate `<EXPERIMENT_NAME>Processor` object defined in a script stored in the `data_processors` directory.
+      - Processes the CSV file with the `TaskIntegrator` object defined in `task_integrator.py`, which calls the appropriate `<EXPERIMENT_NAME>Processor` object defined in a script stored in the `data_processors` directory.
       - Computes task metrics and formats them as a dictionary.
       - Saves (or updates) the result in the participant's JSON file (`<SUBJECT_ID>_integrated_result.json` under the `integrated_results` folder). 
     - If it **is** from the *TextReading* project (since it is the last task, its completion triggers the report generation process):
@@ -27,10 +28,27 @@ The list of participants and their associated email addresses is stored in CSV f
       - Sends a POST request to `https://qoca-api.chih-he.dev/exams` to upload these results.
       - Sends a POST request to `https://qoca-api.chih-he.dev/tasks` to create a report generation task.
 - Additionally, it provides the `/report` endpoint for manually triggering report generation (mainly for participants who failed to complete the *TextReading* task).
+
+### `get_integrated_result.py`
+- Serves the `/get_integrated_result` local endpoint that returns the content of `<SUBJECT_ID>_integrated_result.json` stored locally.
+
+### `predict.py`
+- Serves the `/predict` local endpoint:
+  - Sends a request to the `/get_integrated_result` local endpoint to retrieve the participant's feature data.
+  - Loads the appropriate model and scaler by the participant's age group.
+  - Preprocess the input, calculates a cognitive percentile score for each domain (i.e., *motor*, *working memory*, *language comprehension*, *episodic memory*, and *language production*), and performs brain age prediction with a pre-trained model (stored under the `prediction` folder).
+  - Returns results as a JSON object.
+
+### `process_textreading.py`
+- Serves the `/process_textreading` local endpoint:
+  - Processes the WebM audio files with the imported `TextReadingProcessor` object and computes task metrics (i.e., mean speech rate).
+  - Updates the result into the participant's JSON file (`<SUBJECT_ID>_integrated_result.json`).
+
 ### `cronjob.sh`
 - Schedule routine background jobs with the `corntab` command:
   - Executes `process_tasks.py` every **20 minutes**.
   - Executes `download_textreading_files.py` every **12 hours**.
+
 ### `download_textreading_files.py`
 - Periodically executed by `cronjob.sh`:
   - Identifies participants with CSV but missing WebM audio files (--> have not been downloaded yet).
@@ -39,10 +57,7 @@ The list of participants and their associated email addresses is stored in CSV f
   - Downloads the WebM audio files.
   - Sends a GET request to the API endpoint `https://qoca-api.chih-he.dev/tasks?csv_filename=< CSV_FILENAME>` to check if the report generation task exists.
   - If the task exists and its `status` is `0`, sends a PUT request to the API endpoint `https://qoca-api.chih-he.dev/tasks/<TASK_ID>` to update the `is_file_ready` status from `0` to `1`.
-### `process_textreading.py`
-- Serves the `/process_textreading` local endpoint:
-  - Processes the WebM audio files with the imported `TextReadingProcessor` object and computes task metrics.
-  - Updates the result into the participant's JSON file (`<SUBJECT_ID>_integrated_result.json`).
+
 ### `process_tasks.py`
 - Periodically executed by `cronjob.sh`:
   - Sends a GET request with query parameters to an external API (`https://qoca-api.chih-he.dev/tasks?is_file_ready=1&status=0`) to search for report generation tasks that need to be completed.
@@ -52,23 +67,36 @@ The list of participants and their associated email addresses is stored in CSV f
     - Sends a POST request to the `/predict` local endpoint (re-predict brain age with *TextReading* metric included) and receives a JSON format `predict_result`.
     - Sends a PUT request to the API `https://qoca-api.chih-he.dev/tasks/<TASK_ID>` to update `status` to `1`.
     - Sends a PUT request to the API `https://qoca-api.chih-he.dev/exams/<EXAM_ID>` to update `predict_result` with `report_status` is `0` to trigger the second PDF report's regeneration.
-### `get_integrated_result.py`
-- Serves the `/get_integrated_result` local endpoint that returns the content of `<SUBJECT_ID>_integrated_result.json` stored locally.
-### `predict.py`
-- Serves the `/predict` local endpoint:
-  - Sends a request to the `/get_integrated_result` local endpoint to retrieve the participant's feature data.
-  - Loads the appropriate model and scaler by the participant's age group.
-  - Preprocess the input, calculates a cognitive percentile score for each domain (i.e., *motor*, *working memory*, *language comprehension*, *episodic memory*, and *language production*), and performs brain age prediction with a pre-trained model (stored under the `prediction` folder).
-  - Returns results as a JSON object.
+
+### `mannual_trigger_webhook.py`
+- Creates a pseudo commit from Pavlovia GitLab to local /webhook endpoint, so that `server.py` can be triggered to download and process the data.
+- Usage: `python pseudo_commit.py <PROJECT_NO> <CSV_FILENAME>`
+- `PROJECT_NO`: [1]: gofitt, [2]: ospan, [3]: speechcomp, [4]: exclusion, [5]: textreading
+
+### `mannual_trigger_predict.py`
+- Generate age predictions using data from a CSV file (specificly, the ~400 participants data matrix).
+- For each participant, a `{SUBJECT_ID}_integrated_result.json` will be generated.
+- Prediction results for all participants will be saved into `background_predicted_results.csv`.
+
+### `patches.py`
+- For participants with missing language production scores, sends a request to `/process_textreading` using `execute_process_textreading` defined in `process_tasks.py`, re-produces `predict_result` and generates a new report using `predict` and `upload_exam` defined in `server`.
+- Should be execute after audio files are downloaded.
+- Usage: `python patches.py <SUBJECT_ID>`
+- Had better be called by `tidy_predicted_results.py`.
+
+### `tidy_predicted_results.py`
+- Reads the `{SUBJECT_ID}_predicted_results.json` and `{SUBJECT_ID}_integrated_results.json` files of all participants, and then organizes them into a table.
+- Executes `patches.py` if any `SUBJECT_ID` is specified in the command line.
+- Usage: `python tidy_predicted_results.py [<SUBJECT1_ID> <SUBJECT2_ID> ...]`
+
 ### `util.py`
 - Defines `PLATFORM_FEATURES`, which stores the name of metrics derived from task data.
+
 ### `.env` (hidden)
 - Defines `GITLAB_TOKEN`, `QOCA_TOKEN`, the name and ID of Pavlovia experiments (`EXPERIMENT_*_NAME` and `EXPERIMENT_*_ID`), as well as the URLs of the local endpoints (`WEBHOOK_URL`, `PROCESS_TEXTREADING_URL`, `GET_INTEGRATED_RESULT_URL`, and `PREDICT_URL`).
 
 # Usage:
-1. `cd server`
-2. Executes `start.sh`, `process_textreading.py`, `get_integrated_result.py`, and `predict.py` to create corresponding server endpoints.
-3. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
-
-# Workflow:
+1. Executes `start.sh`, `get_integrated_result.py`, and `predict.py` under virtual environment `quanta` (`conda activate quanta`).
+3. Executes `process_textreading.py` under another virtual environment `whisper_env`.
+4. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
 
