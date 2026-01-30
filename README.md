@@ -100,3 +100,6 @@ The list of participants and their associated email addresses is stored in CSV f
 2. Executes `start.sh`, `get_integrated_result.py`, `predict.py`, and `process_textreading.py` to create corresponding server endpoints.
 3. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
 
+# Preparation
+- Create a conda environment with necessary packages installed using `conda env create -f environment.yml`
+- If failed, try `prepare_env.sh`
