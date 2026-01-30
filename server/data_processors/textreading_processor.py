@@ -15,7 +15,7 @@ class TextReadingProcessor:
         self.data_dir = data_dir
         self.base_path = os.path.dirname(os.path.abspath(__file__))
 
-    def webm2wav(audio_file):
+    def webm2wav(self, audio_file):
         if ".webm" in audio_file:
             out_file = audio_file.replace(".webm", ".wav")
             os.system(f"ffmpeg -y -i {audio_file} {out_file}")
@@ -26,7 +26,7 @@ class TextReadingProcessor:
             raise ValueError("Unsupported audio format. Please provide a .webm or .wav file.")
         return out_file
 
-    def de_silence(audio_file, silence_len=150):
+    def de_silence(self, audio_file, silence_len=150):
         audio = AudioSegment.from_file(audio_file)
         loudness = audio.dBFS
         print(f"loudness={loudness}")
@@ -45,7 +45,7 @@ class TextReadingProcessor:
         print("Successfully removed silence from audio file.")
         return out_file
     
-    def whisper_label(audio_file):
+    def whisper_label(self, audio_file):
         '''
         Generate transcription labels using Whisper.
         '''

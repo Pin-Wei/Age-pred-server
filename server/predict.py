@@ -292,7 +292,8 @@ def predict():
                         }
                     }
                     print(f"腦齡預測結果: {response['results']['brainAge']}")
-                    print("‧★,:*:‧\(^o^)/‧:*‧°★*\n")
+                    print(r"‧★,:*:‧\(^o^)/‧:*‧°★*")
+                    print()
 
                     with open(config.predicted_result_template.replace("<id_card>", config.data["id_card"]), 'w', encoding='utf-8') as f:
                         json.dump(response, f, ensure_ascii=False)
