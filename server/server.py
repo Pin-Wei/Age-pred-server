@@ -2,6 +2,7 @@
 
 import os
 import sys
+import base64
 import json
 import logging
 from datetime import datetime, timezone
@@ -19,22 +20,38 @@ from task_integrator import TaskIntegrator, process_and_format_result
 
 class Config:
     def __init__(self):
+        self.setup_paths()
+        self.setup_headers()
+        self.setup_vars()
+
+    def setup_paths(self):
         self.source_dir = os.path.dirname(os.path.abspath(__file__))
         self.data_dir = os.path.join(self.source_dir, "..", "data")
         self.integrated_results_dir = os.path.join(self.source_dir, "integrated_results")
-        self.predict_url = os.getenv("PREDICT_URL")  
         self.fetch_file_url = "https://gitlab.pavlovia.org/api/v4/projects/{}/repository/files/data%2F{}/raw?ref=master"
-        self.gitlab_token = os.getenv("GITLAB_TOKEN")
-        self.gitlab_headers = {
-            "Authorization": f"Bearer {self.gitlab_token}"
-        }
+        self.openclaw_api_url = os.getenv("OPENCLAW_API_URL")
+        self.predict_url = os.getenv("PREDICT_URL")
+        self.qoca_url = os.getenv("QOCA_URL")
+
+    def setup_headers(self):
         self.local_headers = {
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
         }
+        self.openclaw_password = os.getenv("OPENCLAW_PASSWORD")
+        self.openclaw_auth = base64.b64encode(f"admin:{self.openclaw_password}".encode()).decode()
+        self.openclaw_headers = {
+            "Authorization": f"Bearer {self.openclaw_auth}"
+        }
+        self.gitlab_token = os.getenv("GITLAB_TOKEN")
+        self.gitlab_headers = {
+            "Authorization": f"Bearer {self.gitlab_token}"
+        }
         self.qoca_headers = {
             "Content-Type": "application/json"
         }
+
+    def setup_vars(self):
         self.exp_gofitt_name = os.getenv("EXPERIMENT_GOFITT_NAME")
         self.exp_ospan_name = os.getenv("EXPERIMENT_OSPAN_NAME")
         self.exp_speechcomp_name = os.getenv("EXPERIMENT_SPEECHCOMP_NAME")
@@ -245,12 +262,20 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks, t
         if commit["author"]["name"] == "Pavlovia Committer":
             if commit["title"].endswith(".csv"): 
                 filename = os.path.basename(commit["added"][0])
+                subject_id = os.path.basename(filepath).split('_')[0]
+
+                msg = (
+                    f"✅ 資料已成功上傳至 Pavlovia Gitlab:\n" + 
+                    f"📝 實驗名稱: {project_name}\n" +
+                    f"👤 受試者ID: {subject_id}\n"
+                )
+                background_tasks.add_task(notify_braino, msg)
+
                 logger.info(f"Fetching file: {filename}")
                 filepath = fetch_file(project_name, project_id, filename, config, logger)    
                 process_file(project_name, filepath, config, logger)
 
                 if project_name == config.exp_textreading_name:
-                    subject_id = os.path.basename(filepath).split('_')[0]
                     predict_result = predict(subject_id, config, logger)
                     if predict_result:
                         exam_id = upload_exam(predict_result, config, logger)
@@ -264,6 +289,23 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks, t
         else:
             logger.error(f"No valid commit found in the webhook payload")
             raise HTTPException(status_code=404, detail="No valid commit found!")
+
+async def notify_braino(message: str):
+    msg = await message
+    res = requests.post(
+        url=config.braino_url, 
+        headers=config.local_headers, 
+        json={
+            "message": msg
+        }, 
+        timeout=10
+    )
+    if (res.status_code == 200):
+        logger.info("Successfully notified braino")
+        return {"status": "ok"}
+    else:
+        logger.error("Failed to notify braino")
+        raise Exception(f"{res.text}: {res.status_code}")
 
 @app.post('/report')
 async def create_report(request: Request):
