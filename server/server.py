@@ -2,7 +2,6 @@
 
 import os
 import sys
-import base64
 import json
 import logging
 from datetime import datetime, timezone
@@ -21,7 +20,7 @@ from task_integrator import TaskIntegrator, process_and_format_result
 class Config:
     def __init__(self):
         self.setup_paths()
-        self.setup_headers()
+        self.setup_auths()
         self.setup_vars()
 
     def setup_paths(self):
@@ -29,19 +28,14 @@ class Config:
         self.data_dir = os.path.join(self.source_dir, "..", "data")
         self.integrated_results_dir = os.path.join(self.source_dir, "integrated_results")
         self.fetch_file_url = "https://gitlab.pavlovia.org/api/v4/projects/{}/repository/files/data%2F{}/raw?ref=master"
-        self.openclaw_api_url = os.getenv("OPENCLAW_API_URL")
+        self.discord_webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
         self.predict_url = os.getenv("PREDICT_URL")
         self.qoca_url = os.getenv("QOCA_URL")
 
-    def setup_headers(self):
+    def setup_auths(self):
         self.local_headers = {
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
-        }
-        self.openclaw_password = os.getenv("OPENCLAW_PASSWORD")
-        self.openclaw_auth = base64.b64encode(f"admin:{self.openclaw_password}".encode()).decode()
-        self.openclaw_headers = {
-            "Authorization": f"Bearer {self.openclaw_auth}"
         }
         self.gitlab_token = os.getenv("GITLAB_TOKEN")
         self.gitlab_headers = {
@@ -60,22 +54,34 @@ class Config:
         self.exp_name_list = [self.exp_gofitt_name, self.exp_ospan_name, self.exp_speechcomp_name, self.exp_exclusion_name, self.exp_textreading_name]
         self.platform_features = util.init_platform_features()
         self.missing_marker = -999
+        self.discord_role_id = int(os.getenv("DISCORD_ROLE_ID"))
 
 def setup_logger():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     logger.propagate = False
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     return logger
 
 def authenticate_gitlab(x_gitlab_token: str = Header(...)):
     if x_gitlab_token != 'tcnl-project':
         raise HTTPException(status_code=403)
     return x_gitlab_token
+
+def send_msg_to_discord(msg, config, logger):
+    res = requests.post(
+        url=config.discord_webhook_url, 
+        json={"content": msg}
+    )
+    if res.status_code == 204:
+        logger.info(f"Successfully sent message to Discord")
+        return {"status": "ok"}
+    else:
+        logger.error(f"Failed to send message to Discord")
+        return {"status": "failed", "code": res.status_code}
 
 def fetch_file(project_name, project_id, filename, config, logger):
     resp = requests.get(
@@ -262,14 +268,10 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks, t
         if commit["author"]["name"] == "Pavlovia Committer":
             if commit["title"].endswith(".csv"): 
                 filename = os.path.basename(commit["added"][0])
-                subject_id = os.path.basename(filepath).split('_')[0]
+                subject_id = filename.split('_')[0]
 
-                msg = (
-                    f"✅ 資料已成功上傳至 Pavlovia Gitlab:\n" + 
-                    f"📝 實驗名稱: {project_name}\n" +
-                    f"👤 受試者ID: {subject_id}\n"
-                )
-                background_tasks.add_task(notify_braino, msg)
+                msg = f"<@{config.discord_role_id}> Data from {project_name} has been uploaded for subject {subject_id}"
+                send_msg_to_discord(msg, config, logger)
 
                 logger.info(f"Fetching file: {filename}")
                 filepath = fetch_file(project_name, project_id, filename, config, logger)    
@@ -290,23 +292,6 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks, t
             logger.error(f"No valid commit found in the webhook payload")
             raise HTTPException(status_code=404, detail="No valid commit found!")
 
-async def notify_braino(message: str):
-    msg = await message
-    res = requests.post(
-        url=config.braino_url, 
-        headers=config.local_headers, 
-        json={
-            "message": msg
-        }, 
-        timeout=10
-    )
-    if (res.status_code == 200):
-        logger.info("Successfully notified braino")
-        return {"status": "ok"}
-    else:
-        logger.error("Failed to notify braino")
-        raise Exception(f"{res.text}: {res.status_code}")
-
 @app.post('/report')
 async def create_report(request: Request):
     body = await request.json()
@@ -319,6 +304,7 @@ async def create_report(request: Request):
         return {"status": "ok", 'exam_id': exam_id}
     else:
         raise HTTPException(status_code=422, detail="Failed to produce predict_result")
-    
+
 if __name__ == "__main__":  
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    
