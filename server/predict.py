@@ -25,16 +25,22 @@ class Config:
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
         }
+        self.source_dir = os.path.dirname(os.path.abspath(__file__))
         self.predicted_result_template = os.path.join(
-            "predicted_results", "<id_card>_predicted_result.json")
-        self.model_path_template = os.path.join(
-            "prediction", "model", "<age_abb>") # only trained on behavioral data
-        self.scaler_path_template = os.path.join(
-            "prediction", "scaler", f"scaler_<age_full>.pkl") # sklearn.preprocessing.MinMaxScaler() object; includes both behavioral and neuroimaging data
+            self.source_dir, "predicted_results", "<id_card>_predicted_result.json"
+        )
+        self.model_path_template = os.path.join( # only trained on behavioral data
+            self.source_dir, "prediction", "model", "<age_abb>"
+        ) 
+        self.scaler_path_template = os.path.join( # sklearn.preprocessing.MinMaxScaler() object; includes both behavioral and neuroimaging data
+            self.source_dir, "prediction", "scaler", f"scaler_<age_full>.pkl"
+        ) 
         self.percentiles_path_template = os.path.join(
-            "prediction", "scaler", f"cognitive_percentiles_<age_full>.pkl")
+            self.source_dir, "prediction", "scaler", f"cognitive_percentiles_<age_full>.pkl"
+        )
         self.correction_ref_path_template = os.path.join(
-            "prediction", "model", f"<age_abb>_ref.csv")
+            self.source_dir, "prediction", "model", f"<age_abb>_ref.csv"
+        )
         self.cognitive_domains = {
             "工作記憶": ["MEMORY_OSPAN_BEH_LETTER_ACCURACY"],
             "情節記憶": [
