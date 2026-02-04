@@ -7,7 +7,8 @@ Final results are submitted to an external API, and personalized PDF reports are
 
 The list of participants and their associated email addresses is stored in CSV format under the `subj_csv_files` directory and uploaded to the external API using the `upload_subj_csv.py` script.
 
-- Note: The experimental data stored under the `data` folder is not publicly available.
+- Note 1: The experimental data stored under the `data` folder is not publicly available.
+- Note 2: The `.env` file is not publicly available due to security concerns. Anyone taking over this project should copy it from the original server.
 
 # Setup:
 - Create a conda environment with necessary packages installed using `conda env create -f environment.yml` (if failed, try `bash prepare_env.sh`).
@@ -20,9 +21,6 @@ The list of participants and their associated email addresses is stored in CSV f
   - To stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`.
 
 # Component Breakdown:
-### `start.sh`
-- Entrypoint script for `server.py`.
-
 ### `server.py`
 - Serves the `/webhook` endpoint that listens for webhook events from the Pavlovia GitLab project repositories:
   - When the webhook is triggered by a CSV file upload event:
