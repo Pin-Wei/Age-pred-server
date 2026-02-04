@@ -89,17 +89,22 @@ The list of participants and their associated email addresses is stored in CSV f
 - Executes `patches.py` if any `SUBJECT_ID` is specified in the command line.
 - Usage: `python tidy_predicted_results.py [<SUBJECT1_ID> <SUBJECT2_ID> ...]`
 
+### `start_service.sh`
+- Uses the terminal multiplexer `tmux` to run `server.py` `get_integrated_result.py` `predict.py`, and `process_textreading.py` within a conda environment that has all required dependencies installed, thereby exposing the corresponding server endpoints.
+
 ### `util.py`
 - Defines `PLATFORM_FEATURES`, which stores the name of metrics derived from task data.
 
 ### `.env` (hidden)
 - Defines `GITLAB_TOKEN`, `QOCA_TOKEN`, the name and ID of Pavlovia experiments (`EXPERIMENT_*_NAME` and `EXPERIMENT_*_ID`), as well as the URLs of the local endpoints (`WEBHOOK_URL`, `PROCESS_TEXTREADING_URL`, `GET_INTEGRATED_RESULT_URL`, and `PREDICT_URL`).
 
-# Usage:
-1. Activate the virtual environment created using `requirements.txt` (e.g., `conda activate <ENV_NAME>`) and direct to the folder `server` (`cd server`).
-2. Executes `bash start.sh`, `python get_integrated_result.py`, `python predict.py`, and `python process_textreading.py` to create corresponding server endpoints.
-3. Executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks` to start the schedules. (to stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`)
+# How to setup:
+- Create a conda environment with necessary packages installed using `conda env create -f environment.yml` (if failed, try `bash prepare_env.sh`).
+- Executes `./onetime_setup.sh`, which uses the `systemctl` command to configure `start_service.sh` to run automatically at system boot.
 
-# Preparation
-- Create a conda environment with necessary packages installed using `conda env create -f environment.yml`
-- If failed, try `bash prepare_env.sh`
+# How to check:
+- To display the tmux session, executes `tmux attach -t SESSION`, where `SESSION` is defined in `start_service.sh`.
+- To check the current schedule, executes `./cronjob.sh list`.
+  - To start the schedules, executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks`.
+  - To stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`.
+
