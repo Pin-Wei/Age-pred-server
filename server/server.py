@@ -265,32 +265,37 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks, t
     logger.info(f"Received {len(commits)} commits from project {project_name} ({project_id})")
 
     for commit in commits:
-        if commit["author"]["name"] == "Pavlovia Committer":
-            if commit["title"].endswith(".csv"): 
-                filename = os.path.basename(commit["added"][0])
-                subject_id = filename.split('_')[0]
+        commiter = commit["author"]["name"]
+        filetype = commit["title"].split('.')[-1]
 
-                msg = f"<@{config.discord_role_id}> Data from {project_name} has been uploaded for subject {subject_id}"
-                send_msg_to_discord(msg, config, logger)
-
-                logger.info(f"Fetching file: {filename}")
-                filepath = fetch_file(project_name, project_id, filename, config, logger)    
-                process_file(project_name, filepath, config, logger)
-
-                if project_name == config.exp_textreading_name:
-                    predict_result = predict(subject_id, config, logger)
-                    if predict_result:
-                        exam_id = upload_exam(predict_result, config, logger)
-                        if exam_id:
-                            create_task(exam_id, filename, config, logger)
-
-                return {"status": "ok", "fetched_file": filename}
-            else:
-                logger.info(f"Ignoring non-CSV file commit: {commit['title']}")
-                return {"status": "ignored", "reason": "non-CSV file"}
+        if commiter not in ["Pavlovia Committer", "Local Committer"]:
+            logger.warning("Ignoring commit from non-Pavlovia Committer.")
+            return {"status": "ignored", "reason": "non-Pavlovia Committer"}
+        
+        elif filetype != "csv":
+            logger.warning("Ignoring non-CSV file commit.")
+            return {"status": "ignored", "reason": "non-CSV file"}
+        
         else:
-            logger.error(f"No valid commit found in the webhook payload")
-            raise HTTPException(status_code=404, detail="No valid commit found!")
+            filename = os.path.basename(commit["added"][0])
+            subject_id = filename.split('_')[0]
+
+            # if commiter == "Pavlovia Committer":
+            #     msg = f"<@{config.discord_role_id}> Data from {project_name} has been uploaded for subject {subject_id}"
+            #     send_msg_to_discord(msg, config, logger)
+
+            logger.info(f"Fetching file: {filename}")
+            filepath = fetch_file(project_name, project_id, filename, config, logger)    
+            process_file(project_name, filepath, config, logger)
+
+            if project_name == config.exp_textreading_name:
+                predict_result = predict(subject_id, config, logger)
+                if predict_result:
+                    exam_id = upload_exam(predict_result, config, logger)
+                    if exam_id:
+                        create_task(exam_id, filename, config, logger)
+
+            return {"status": "ok", "fetched_file": filename}
 
 @app.post('/report')
 async def create_report(request: Request):

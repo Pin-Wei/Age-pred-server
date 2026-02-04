@@ -82,9 +82,9 @@ if __name__ == "__main__":
                 }, 
                 "commits": [{
                     "title": f"data: {csv_filename}", 
-                    "author": {"name":"Pavlovia Committer"}, 
+                    "author": {"name":"Local Committer"}, 
                     "added": [f"data/{csv_filename}"], 
-                    "note": "a fake commit"
+                    "note": "a pseudo commit from mannual_trigger_webhook.py"
                 }]        
             }
         )
