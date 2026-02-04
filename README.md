@@ -7,8 +7,17 @@ Final results are submitted to an external API, and personalized PDF reports are
 
 The list of participants and their associated email addresses is stored in CSV format under the `subj_csv_files` directory and uploaded to the external API using the `upload_subj_csv.py` script.
 
-- Note 1: The experimental data stored under the `data` folder is not publicly available.
-- Note 2: Remember to change the directory to `server` (where the scripts are located) before executing the scripts.
+- Note: The experimental data stored under the `data` folder is not publicly available.
+
+# Setup:
+- Create a conda environment with necessary packages installed using `conda env create -f environment.yml` (if failed, try `bash prepare_env.sh`).
+- Executes `./onetime_setup.sh`, which uses the `systemctl` command to configure `start_service.sh` to run automatically at system boot.
+
+# How to check:
+- To display the tmux session, executes `tmux attach -t SESSION`, where `SESSION` is defined in `start_service.sh`.
+- To check the current schedule, executes `./cronjob.sh list`.
+  - To start the schedules, executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks`.
+  - To stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`.
 
 # Component Breakdown:
 ### `start.sh`
@@ -90,21 +99,11 @@ The list of participants and their associated email addresses is stored in CSV f
 - Usage: `python tidy_predicted_results.py [<SUBJECT1_ID> <SUBJECT2_ID> ...]`
 
 ### `start_service.sh`
-- Uses the terminal multiplexer `tmux` to run `server.py` `get_integrated_result.py` `predict.py`, and `process_textreading.py` within a conda environment that has all required dependencies installed, thereby exposing the corresponding server endpoints.
+- Uses the terminal multiplexer `tmux` to run `server.py`, `get_integrated_result.py`, `predict.py`, and `process_textreading.py` within a conda environment that has all required dependencies installed, thereby exposing the corresponding server endpoints.
 
 ### `util.py`
 - Defines `PLATFORM_FEATURES`, which stores the name of metrics derived from task data.
 
 ### `.env` (hidden)
 - Defines `GITLAB_TOKEN`, `QOCA_TOKEN`, the name and ID of Pavlovia experiments (`EXPERIMENT_*_NAME` and `EXPERIMENT_*_ID`), as well as the URLs of the local endpoints (`WEBHOOK_URL`, `PROCESS_TEXTREADING_URL`, `GET_INTEGRATED_RESULT_URL`, and `PREDICT_URL`).
-
-# How to setup:
-- Create a conda environment with necessary packages installed using `conda env create -f environment.yml` (if failed, try `bash prepare_env.sh`).
-- Executes `./onetime_setup.sh`, which uses the `systemctl` command to configure `start_service.sh` to run automatically at system boot.
-
-# How to check:
-- To display the tmux session, executes `tmux attach -t SESSION`, where `SESSION` is defined in `start_service.sh`.
-- To check the current schedule, executes `./cronjob.sh list`.
-  - To start the schedules, executes `./cronjob.sh enable download_textreading_files` and `./cronjob.sh enable process_tasks`.
-  - To stop the schedules, use `./cronjob.sh disable download_textreading_files` and `./cronjob.sh disable process_tasks`.
 
