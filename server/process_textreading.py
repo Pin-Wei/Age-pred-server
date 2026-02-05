@@ -9,7 +9,8 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
-from server import Config, authenticate_gitlab, update_json_result, setup_logger
+from uvicorn_config import LOGGING_CONFIG
+from server import Config, setup_logger, authenticate_gitlab, update_json_result
 from data_processors.textreading_processor import TextReadingProcessor
 
 class SubjectReprocessRequest(BaseModel):
@@ -112,4 +113,4 @@ async def reprocess_subject(request: SubjectReprocessRequest, token: str = Depen
     return result
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=6666)
+    uvicorn.run(app, host="0.0.0.0", port=6666, log_config=LOGGING_CONFIG)

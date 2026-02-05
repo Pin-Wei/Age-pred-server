@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import json
 import logging
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
-import uvicorn
 import requests
+import uvicorn
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
-from pydantic import BaseModel
 from dotenv import load_dotenv
 
 import util
+from uvicorn_config import LOGGING_CONFIG
 from task_integrator import TaskIntegrator, process_and_format_result
 
 class Config:
@@ -58,10 +57,14 @@ class Config:
 
 def setup_logger():
     logger = logging.getLogger(__name__)
+    logger.handlers.clear()
     logger.setLevel(logging.INFO)
     logger.propagate = False
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(levelname)s - %(message)s", 
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
@@ -253,7 +256,8 @@ app = FastAPI(docs_url=None)
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+    logger.info("Hello World")
+    return {"status": "ok"}
 
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks, token: str = Depends(authenticate_gitlab)):
@@ -311,5 +315,5 @@ async def create_report(request: Request):
         raise HTTPException(status_code=422, detail="Failed to produce predict_result")
 
 if __name__ == "__main__":  
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=LOGGING_CONFIG)
     

@@ -8,12 +8,8 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
-from server import authenticate_gitlab, setup_logger
-
-class Config:
-    def __init__(self):
-        self.source_dir = os.path.dirname(os.path.abspath(__file__))
-        self.integrated_results_dir = os.path.join(self.source_dir, "integrated_results")
+from server import Config, setup_logger, authenticate_gitlab
+from uvicorn_config import LOGGING_CONFIG
 
 class SubjectDownloadRequest(BaseModel):
     subject_id: str
@@ -39,4 +35,4 @@ async def get_integrated_result(request: SubjectDownloadRequest, token: str = De
         return {"status": "ok", "integrated_result": integrated_result}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7777)
+    uvicorn.run(app, host="0.0.0.0", port=7777, log_config=LOGGING_CONFIG)

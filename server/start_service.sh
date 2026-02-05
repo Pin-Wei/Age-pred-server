@@ -20,7 +20,7 @@ if [ $? != 0 ]; then
 	
 	tmux send-keys -t $SESSION:0 "conda activate $ENV_NAME" C-m
 	tmux send-keys -t $SESSION:0 "cd $ROOT" C-m
-	tmux send-keys -t $SESSION:0 "fastapi run $SCRIPT_NAME_1 --host 0.0.0.0 --port 8000" C-m
+	tmux send-keys -t $SESSION:0 "python $SCRIPT_NAME_1" C-m
 
 	tmux split-window -h -l 75% -t $SESSION:0
 	tmux send-keys -t $SESSION:0 "conda activate $ENV_NAME" C-m
