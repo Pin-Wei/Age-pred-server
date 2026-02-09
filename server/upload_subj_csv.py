@@ -2,7 +2,6 @@
 
 import os
 import sys
-import chardet
 import requests
 
 from dotenv import load_dotenv
@@ -13,28 +12,31 @@ qoca_headers = {
     "Authorization": f"Bearer {qoca_token}"
 }
 
-def detect_and_convert_to_utf8(input_path):
+def force_google_style_csv(input_path):
+    fp, ext = os.path.splitext(input_path)
+    assert ext == ".csv", "Input file must be in CSV format."
+
     with open(input_path, "rb") as f:
-        raw_data = f.read()
-    result = chardet.detect(raw_data)
-    encoding = result["encoding"]
+        content = f.read()
 
-    if encoding is None:
-        raise ValueError("Could not detect encoding")
-
-    if encoding.lower() == "utf-8":
-        print("File is already in UTF-8 encoding.")
+    try:
+        content.decode("utf-8")
         return input_path
-    else:
-        print(f"Detected encoding: {encoding}. Converting to UTF-8...")
-        output_path = os.path.splitext(input_path)[0] + "_utf8.csv"
-        content = raw_data.decode(encoding, errors="ignore")
-        with open(output_path, "w", encoding="utf-8") as f:
+    
+    except UnicodeDecodeError:
+        print("Converting to UTF-8 ...")
+        try:
+            content = content.decode("cp950")
+        except UnicodeDecodeError:
+            content = content.decode("big5", errors="strict")
+
+        output_path = f"{fp}+{ext}"
+        with open(output_path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
+            
         return output_path
 
 def upload_file(file_path):
-
     if not os.path.exists(file_path):
         raise ValueError(f"File {file_path} does not exist :(")
     
@@ -60,9 +62,9 @@ def upload_file(file_path):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        raw_input_path = os.path.join("subj_csv_files", f"test_and_NHRI_{sys.argv[1]}.csv")
+        raw_input_path = os.path.join("subj_csv_files", sys.argv[1])
     else:
         raw_input_path = os.path.join("subj_csv_files", "test_and_NHRI_2025-09-15.csv")
 
-    file_path = detect_and_convert_to_utf8(raw_input_path)    
+    file_path = force_google_style_csv(raw_input_path)    
     upload_file(file_path)
