@@ -3,6 +3,8 @@
 import os
 import glob
 import logging
+from datetime import datetime
+
 import requests
 import pandas as pd
 from dotenv import load_dotenv
@@ -20,6 +22,18 @@ class Config:
         self.data_dir = os.path.join(self.source_dir, "..", "data", self.experiment_name)
         self.subj_webm_downloaded = os.path.join(self.data_dir, "subj_webm_downloaded.txt")
         self.subj_webm_ignored = os.path.join(self.data_dir, "subj_webm_ignored.txt")
+        self.log_dir = os.path.join(self.source_dir, "..", "logs")
+        self.log_fn_format = "downloadTextReadingFiles_%Y-%m-%d.log"
+
+def setup_logger():
+    logging.root.handlers = []
+    logging.basicConfig(
+        level=logging.INFO, 
+        filename=os.path.join(config.log_dir, datetime.now().strftime(config.log_fn_format)), 
+        format="%(asctime)s [%(levelname)s] %(filename)s:%(lineno)4d: %(message)s"
+    )
+    logger = logging.getLogger(__name__)    
+    return logger
 
 def list_awaiting_files(config, logger):
     csv_files = glob.glob(os.path.join(config.data_dir, "*Z.csv")) # raw experimental data
@@ -107,9 +121,7 @@ def update_is_file_ready(csv_filename, logger):
 if __name__ == "__main__":
     load_dotenv()
     config = Config()
-
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    logger = setup_logger()
 
     not_ready_csv_filepaths = list_awaiting_files(config, logger)
     logger.info(f"Start downloading .webm files for {len(not_ready_csv_filepaths)} subjects ...")

@@ -17,7 +17,7 @@ from sklearn.exceptions import InconsistentVersionWarning
 
 import util
 from uvicorn_config import LOGGING_CONFIG
-from server import setup_logger
+# from server import setup_logger
 
 class Config:
     def __init__(self):
@@ -69,6 +69,20 @@ class Config:
             "name": "", 
             "test_date": ""
         }        
+
+def setup_logger():
+    logger = logging.getLogger("werkzeug")
+    logger.handlers.clear()
+    logger.setLevel(logging.ERROR)
+    logger.propagate = False
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(levelname)s - %(message)s", 
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
 
 def ignore_warnings():
     warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
