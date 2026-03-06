@@ -3,10 +3,11 @@
 # crontab: https://blog.gtwang.org/linux/linux-crontab-cron-job-tutorial-and-examples/
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd );
+PYTHON="/home/aclexp/mambaforge/envs/server/bin/python"
 LOG_FILE_1="$SCRIPT_DIR/../logs/cronjob_download_textreading_files.log"
 LOG_FILE_2="$SCRIPT_DIR/../logs/cronjob_process_tasks.log"
-COMMAND_DOWNLOAD_TEXTREADING_FILES="python $SCRIPT_DIR/download_textreading_files.py >> $LOG_FILE_1 2>&1"
-COMMAND_PROCESS_TASKS="python $SCRIPT_DIR/process_tasks.py >> $LOG_FILE_2 2>&1"
+COMMAND_DOWNLOAD_TEXTREADING_FILES="$PYTHON $SCRIPT_DIR/download_textreading_files.py >> $LOG_FILE_1 2>&1"
+COMMAND_PROCESS_TASKS="$PYTHON $SCRIPT_DIR/process_tasks.py >> $LOG_FILE_2 2>&1"
 
 case "$1" in
     list) crontab -l;

@@ -3,7 +3,7 @@
 # This script is used to create a pseudo commit from Pavlovia GitLab to local /webhook endpoint,
 # so that the server.py can be triggered to download and process the data.
 
-# Usage: python pseudo_commit.py <project_no> <csv_filename>
+# Usage: python trigger_webhook.py <project_no> <csv_filename>
 
 import os
 import sys
