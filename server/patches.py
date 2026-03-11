@@ -12,10 +12,9 @@ import pandas as pd
 from dotenv import load_dotenv
 
 import util
-from server import update_json_result, setup_logger, predict, upload_exam
+from server import setup_logger, predict, upload_exam
 from download_textreading_files import update_is_file_ready
 from process_tasks import execute_process_textreading
-# from data_processors.textreading_processor import TextReadingProcessor
 
 class Config:
     def __init__(self):
@@ -74,25 +73,9 @@ if __name__ == "__main__":
                        "\nGoodbye :-(")
         sys.exit(1)
 
-    # ## Calculate mean speech rate:
-    # text_reading_processor = TextReadingProcessor(
-    #     data_dir=os.path.join(config.data_dir, config.exp_textreading_name)
-    # )
-    # mean_speech_rate = text_reading_processor.calculate_mean_syllable_speech_rate(aud_csv_files)
-
-    # if pd.isna(mean_speech_rate) or mean_speech_rate == float('inf'):
-    #     logger.warning("No valid speech rate calculated. Goodbye :-(")
-    #     sys.exit(1)
-    # else:
-    #     logger.info(f"Mean speech rate is {mean_speech_rate}")
-    #     result_df = pd.DataFrame({
-    #         'ID': [subject_id],
-    #         'LANGUAGE_READING_BEH_NULL_MeanSR': [mean_speech_rate]
-    #     })
-    #     update_json_result(subject_id, result_df, config, logger)
-
     ## Re-generate predict result:
     predict_result = predict(subject_id, config, logger)
+
     if predict_result is not None:
         exam_id = upload_exam(predict_result, config, logger)
         logger.info("Goodbye :-)")

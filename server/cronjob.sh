@@ -16,11 +16,11 @@ case "$1" in
         if [ "$2" == "download_textreading_files" ]
         then
             echo "enable cronjob: $COMMAND_DOWNLOAD_TEXTREADING_FILES";
-            (crontab -l ; echo "0 */2 * * * $COMMAND_DOWNLOAD_TEXTREADING_FILES") | crontab -
+            (crontab -l ; echo "0 */1 * * * $COMMAND_DOWNLOAD_TEXTREADING_FILES") | crontab -
         elif [ "$2" == "process_tasks" ]
         then
             echo "enable cronjob: $COMMAND_PROCESS_TASKS";
-            (crontab -l ; echo "0 */3 * * * $COMMAND_PROCESS_TASKS") | crontab -
+            (crontab -l ; echo "0 */2 * * * $COMMAND_PROCESS_TASKS") | crontab -
         else
             echo "service '$2' unknown"
         fi

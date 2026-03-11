@@ -22,7 +22,13 @@ class Config:
         self.exp_speechcomp_id    = os.getenv("EXPERIMENT_SPEECHCOMP_ID")
         self.exp_exclusion_id     = os.getenv("EXPERIMENT_EXCLUSION_ID")
         self.exp_textreading_id   = os.getenv("EXPERIMENT_TEXTREADING_ID")
-        self.exp_id_list = [ self.exp_gofitt_id, self.exp_ospan_id, self.exp_speechcomp_id, self.exp_exclusion_id, self.exp_textreading_id ]
+        self.exp_id_dict = {
+            1: self.exp_gofitt_id, 
+            2: self.exp_ospan_id, 
+            3: self.exp_speechcomp_id, 
+            4: self.exp_exclusion_id, 
+            5: self.exp_textreading_id
+        }
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -32,9 +38,13 @@ def parse_args():
                         help="The end date for fetching commits (YYYY-MM-DD).")
     parser.add_argument("-pp", "--per_page", type=int, default=None, 
                         help="Number of commits to fetch per page.")
+    parser.add_argument("-e", "--exp_no_list", type=int, nargs="*", default=None, 
+                        help="Experiment number to fetch commits for. [1]: gofitt, [2]: ospan, [3]: speechcomp, [4]: exclusion, [5]: textreading.")
+    parser.add_argument("-s", "--subj_list", type=str, nargs="*", default=None, 
+                        help="Subject IDs to fetch commits for.")
     return parser.parse_args()
 
-def get_commit_records(project_id, config, from_date, to_date, per_page):
+def get_commit_records(exp_id, config, from_date, to_date, per_page):
     '''
     Fetch commit records for a given project within a specified date range.
     '''
@@ -46,7 +56,10 @@ def get_commit_records(project_id, config, from_date, to_date, per_page):
     if per_page is not None:
         inqury += f"&per_page={per_page}"
 
-    targ_url = config.gitlab_commit_url.format(project_id, inqury)
+    if inqury == "":
+        inqury = "&per_page=100" # default
+
+    targ_url = config.gitlab_commit_url.format(exp_id, inqury)
     print(f"Fetching commit records from:\n{targ_url}\n")
     resp = requests.get(url=targ_url, headers=config.gitlab_headers)
 
@@ -59,7 +72,7 @@ def get_commit_records(project_id, config, from_date, to_date, per_page):
                 csv_names.append(csv_name)
         return csv_names
     else:
-        raise ValueError(f"Failed to fetch commit records for project {project_id}. Status code: {resp.status_code}")
+        raise ValueError(f"Failed to fetch commit records for project {exp_id}. Status code: {resp.status_code}")
 
 if __name__ == "__main__":
     load_dotenv()
@@ -67,12 +80,22 @@ if __name__ == "__main__":
     args = parse_args()
     log_msg = []
 
+    if args.exp_no_list is not None:
+        config.exp_id_dict = {
+            k: v for k, v in config.exp_id_dict.items() if k in args.exp_no_list
+        }
+
     try:
-        for i, project_id in enumerate(config.exp_id_list):
-            csv_names = get_commit_records(project_id, config, from_date=args.from_date, to_date=args.to_date, per_page=args.per_page)
-            project_no = i + 1
+        for exp_no, exp_id in config.exp_id_dict.items():
+            csv_names = get_commit_records(exp_id, config, from_date=args.from_date, to_date=args.to_date, per_page=args.per_page)
+            
             for csv_name in csv_names:
-                cmd = ["python", "trigger_webhook.py", str(project_no), csv_name]
+                if args.subj_list is None:
+                    pass
+                elif csv_name.split("_")[0] not in args.subj_list:
+                    continue
+
+                cmd = ["python", "trigger_webhook.py", str(exp_no), csv_name]
                 subprocess.run(cmd, capture_output=True, text=True, check=True)
                 log_msg.append(" ".join(cmd) + "\n")
     finally:

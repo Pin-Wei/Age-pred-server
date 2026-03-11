@@ -19,12 +19,7 @@ subjs_need_patches = sys.argv[1:]
 for fp in glob.glob(os.path.join("predicted_results", "*.json")):
 
     ## Ensuring that the file name match the pattern "????s????-?_*.json" where each ? is a digit
-    if (
-        not re.match(r"[\d]{4}s[\d]{4}-[\d]{1}_.+\.json", os.path.basename(fp))
-        and not os.path.basename(fp).startswith("05020005")
-        and not os.path.basename(fp).startswith("65110002-2")
-        and not os.path.basename(fp).startswith("65010001-1")
-    ):
+    if not re.match(r"[\d]{4}s[\d]{4}-[\d]{1}_.+\.json", os.path.basename(fp)):
         continue 
     
     subject_id = os.path.basename(fp).split("_")[0]
@@ -57,7 +52,7 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
     selected_fields["Avg"] = np.mean(list(cognitive_functions.values())) if not any(v == -1 for v in cognitive_functions.values()) else -1
 
     ## Adding platform features:
-    fp2 = os.path.join("integrated_results", f"{data['id_card']}_integrated_result.json")
+    fp2 = os.path.join("integrated_results", f"{subject_id}_integrated_result.json")
     with open(fp2, "r", encoding="utf-8") as f2:
         platform_features = json.load(f2)
 
