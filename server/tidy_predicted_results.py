@@ -41,7 +41,8 @@ for fp in glob.glob(os.path.join("predicted_results", "*.json")):
     ## Extracting the necessary fields from the JSON data:
     selected_fields = {
         "Date": data["testDate"], 
-        "SID": data["id_card"], # subject_id
+        "SID": subject_id.split("-")[0], 
+        "Session": subject_id.split("-")[1],
         "Name": data["name"], 
         "Age": data["results"]["chronologicalAge"],
         "Brain Age": data["results"]["brainAge"],

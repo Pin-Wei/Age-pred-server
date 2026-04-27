@@ -87,27 +87,28 @@ def send_msg_to_discord(msg, config, logger):
         return {"status": "failed", "code": res.status_code}
 
 def fetch_file(project_name, project_id, filename, config, logger):
-    resp = requests.get(
-        url=config.fetch_file_url.format(project_id, filename), 
-        headers=config.gitlab_headers
-    )
-    if resp.status_code == 200:
-        project_dir = os.path.join(config.data_dir, project_name)
-        if not os.path.exists(project_dir):
-            os.makedirs(project_dir)
-        file_path = os.path.join(project_dir, filename)
-        if os.path.exists(file_path):
-            logger.info(f"File {file_path} already exists, skipping download.")
-            return file_path
-        else:
+    project_dir = os.path.join(config.data_dir, project_name)
+    os.makedirs(project_dir, exist_ok=True)
+
+    file_path = os.path.join(project_dir, filename)
+    if os.path.exists(file_path):
+        logger.info(f"File {file_path} already exists, skipping download.")
+        return file_path
+    else:
+        logger.info(f"Fetching file {filename} from project {project_name}.")
+        resp = requests.get(
+            url=config.fetch_file_url.format(project_id, filename), 
+            headers=config.gitlab_headers
+        )
+        if resp.status_code == 200:
             with open(file_path, "wb") as f:
                 f.write(resp.content)
             logger.info(f"Successfully fetched file from project {project_name}.")
             return file_path
-    else:
-        print(f"{resp.text}")
-        logger.error(f"Failed to fetch file {filename} from project {project_name}.")
-        raise HTTPException(status_code=404, detail=f"File {filename} not found in project {project_name}.")
+        else:
+            print(f"{resp.text}")
+            logger.error(f"Failed to fetch file {filename} from project {project_name}.")
+            raise HTTPException(status_code=404, detail=f"File {filename} not found in project {project_name}.")
 
 def convert_np_types(obj):
     if isinstance(obj, (np.integer, np.int64)):
@@ -198,10 +199,12 @@ def predict(id_card, config, logger):
             return res.json()
         else:
             logger.info("Failed to retrieve prediction result")
-            raise Exception(f"{res.text}: {res.status_code}")
+            return None
+            # raise Exception(f"{res.text}: {res.status_code}")
     else:
         logger.error("Failed to retrieve user info")
-        raise Exception(f"{res.text}: {res.status_code}")
+        return None
+        # raise Exception(f"{res.text}: {res.status_code}")
 
 def parse_iso_date(s: str) -> str:
     formats = [
@@ -294,6 +297,7 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks, t
 
             if project_name == config.exp_textreading_name:
                 predict_result = predict(subject_id, config, logger)
+
                 if predict_result:
                     exam_id = upload_exam(predict_result, config, logger)
                     if exam_id:

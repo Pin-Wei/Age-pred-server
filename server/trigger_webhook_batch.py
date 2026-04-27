@@ -12,7 +12,7 @@ class Config:
         self.source_dir = os.path.dirname(os.path.abspath(__file__))
         self.log_dir = os.path.join(self.source_dir, "..", "logs")
         self.log_file = os.path.join(self.log_dir, f"downloadData_{datetime.now().strftime('%Y-%m-%d')}.log")
-        self.gitlab_commit_url = "https://gitlab.pavlovia.org/api/v4/projects/{}/repository/commits?ref_name=master&all=true{}"
+        self.gitlab_commit_url = "https://gitlab.pavlovia.org/api/v4/projects/{}/repository/commits?ref_name=master{}"
         self.gitlab_token = os.getenv("GITLAB_TOKEN")
         self.gitlab_headers = {
             "Authorization": f"Bearer {self.gitlab_token}"
@@ -36,6 +36,8 @@ def parse_args():
                         help="The start date for fetching commits (YYYY-MM-DD).")
     parser.add_argument("-td", "--to_date", type=str, default=None, 
                         help="The end date for fetching commits (YYYY-MM-DD).")
+    parser.add_argument("-hr", "--start_hours", type=str, default=None,
+                        help="The time (HH) to start fetching commits from on the from_date.")
     parser.add_argument("-pp", "--per_page", type=int, default=None, 
                         help="Number of commits to fetch per page.")
     parser.add_argument("-e", "--exp_no_list", type=int, nargs="*", default=None, 
@@ -44,19 +46,21 @@ def parse_args():
                         help="Subject IDs to fetch commits for.")
     return parser.parse_args()
 
-def get_commit_records(exp_id, config, from_date, to_date, per_page):
+def get_commit_records(exp_id, config, args):
     '''
     Fetch commit records for a given project within a specified date range.
     '''
     inqury = ""
-    if from_date is not None:
-        inqury += f"&since={from_date}T00:00:00Z"
-    if to_date is not None:
-        inqury += f"&until={to_date}T23:59:59Z"
-    if per_page is not None:
-        inqury += f"&per_page={per_page}"
+    if args.from_date is not None:
+        from_hours = int(args.start_hours) if args.start_hours is not None else 0
+        inqury += f"&since={args.from_date}T{from_hours:02d}:00:00Z"
+    
+    if args.to_date is not None:
+        inqury += f"&until={args.to_date}T23:59:59Z"
 
-    if inqury == "":
+    if args.per_page is not None:
+        inqury += f"&per_page={args.per_page}"
+    else:
         inqury = "&per_page=100" # default
 
     targ_url = config.gitlab_commit_url.format(exp_id, inqury)
@@ -87,7 +91,7 @@ if __name__ == "__main__":
 
     try:
         for exp_no, exp_id in config.exp_id_dict.items():
-            csv_names = get_commit_records(exp_id, config, from_date=args.from_date, to_date=args.to_date, per_page=args.per_page)
+            csv_names = get_commit_records(exp_id, config, args)
             
             for csv_name in csv_names:
                 if args.subj_list is None:

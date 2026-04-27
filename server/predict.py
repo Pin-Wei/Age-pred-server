@@ -87,7 +87,7 @@ def setup_logger():
 def ignore_warnings():
     warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 
-def correct_age_with_percentile(config, true_age, prediction, domain_score_list):    
+def correct_age_with_percentile(config, true_age, domain_score_list):    
     ## Define the age group and the corresponding median age of the participant
     age_label = pd.cut(
         x=[true_age], 
@@ -280,7 +280,7 @@ def predict():
                         ## Perform brain-age correction 
                         if config.using_percentile_prediction:
                             corrected_pad, corrected_age = correct_age_with_percentile(
-                                config, true_age, prediction, domain_score_list
+                                config, true_age, domain_score_list
                             )
                         else:
                             corrected_pad, corrected_age = correct_age_with_table(

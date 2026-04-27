@@ -25,7 +25,7 @@ class Config:
         self.log_dir = os.path.join(self.source_dir, "..", "logs")
         self.log_fn_format = "downloadTextReadingFiles_%Y-%m-%d.log"
 
-def setup_logger():
+def setup_logger(config):
     logging.root.handlers = []
     logging.basicConfig(
         level=logging.INFO, 
@@ -121,7 +121,7 @@ def update_is_file_ready(csv_filename, logger):
 if __name__ == "__main__":
     load_dotenv()
     config = Config()
-    logger = setup_logger()
+    logger = setup_logger(config)
 
     not_ready_csv_filepaths = list_awaiting_files(config, logger)
     logger.info(f"Start downloading .webm files for {len(not_ready_csv_filepaths)} subjects ...")
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     urls_to_download = get_uploaded_not_downloaded(not_downloaded_tokens, config, logger)
 
     if urls_to_download: # not empty list
-        readied_csv_filenames = []
+        subjs_to_update = []
 
         for file_url in urls_to_download:
             res = requests.get(file_url, stream=True)
@@ -155,11 +155,19 @@ if __name__ == "__main__":
                 logger.info(f"Downloaded: {file_url}")
 
                 subj = file_name.split("_")[0]
-                if subj not in readied_csv_filenames:
-                    csv_filename = os.path.basename(not_ready_csv_filepaths[subj])
-                    update_is_file_ready(csv_filename, logger) 
-                    readied_csv_filenames.append(subj)
+                subjs_to_update.append(subj)
+
             else:
                 logger.info("Failed to download. Status code:", res.status_code)
+
+        for subj in list(set(subjs_to_update)):
+            try:
+                csv_filename = os.path.basename(not_ready_csv_filepaths[subj])
+                update_is_file_ready(csv_filename, logger)
+
+            except:
+                if subj in not_ready_csv_filepaths:
+                    logger.warning(f"'{subj}' possibly should be renamed.")
+                logger.warning(f"Failed to update is_file_ready for '{subj}'.")
     else:
         logger.info(f"No new files to download.")

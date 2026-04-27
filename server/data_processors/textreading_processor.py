@@ -11,6 +11,7 @@ import whisper_timestamped as whisper
 from whisper_timestamped.transcribe import write_csv, flatten
 
 class TextReadingProcessor:
+
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.base_path = os.path.dirname(os.path.abspath(__file__))
@@ -50,7 +51,7 @@ class TextReadingProcessor:
         Generate transcription labels using Whisper.
         '''
         audio = whisper.load_audio(audio_file)
-        model = whisper.load_model("base", device="cpu")
+        model = whisper.load_model("base") # , device="cpu"
         result = whisper.transcribe(
             model, 
             audio, 
