@@ -175,7 +175,7 @@ def process_file(project_name, filepath, config, logger):
     else:
         logger.warning(f"No results found for {project_name}")
 
-def predict(id_card, config, logger):
+def predict(id_card, config, logger, test_date=None):
     res = requests.get(
         url=f"https://qoca-api.chih-he.dev/user/{id_card}"
     )
@@ -183,7 +183,10 @@ def predict(id_card, config, logger):
         user_info = res.json()
         logger.info("Successfully retrieved user info")
 
-        now = datetime.now(timezone.utc)
+        if test_date is None:
+            now = datetime.now(timezone.utc)
+            test_date = now.strftime('%Y-%m-%dT%H%M%S.') + f"{int(now.microsecond / 1000):03d}Z"
+
         res = requests.post(
             url=config.predict_url, 
             headers=config.local_headers, 
@@ -191,7 +194,7 @@ def predict(id_card, config, logger):
                 "age": user_info['age'],
                 "id_card": id_card,
                 "name": user_info['name'],
-                "test_date": now.strftime('%Y-%m-%dT%H%M%S.') + f"{int(now.microsecond / 1000):03d}Z"
+                "test_date": test_date
             }
         )
         if (res.status_code == 200):        

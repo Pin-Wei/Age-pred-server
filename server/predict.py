@@ -52,7 +52,15 @@ class Config:
             ],
             "語言理解":  ["LANGUAGE_SPEECHCOMP_BEH_PASSIVE_ACCURACY"],
             "語言產出": ["LANGUAGE_READING_BEH_NULL_MeanSR"], 
-            "動作": ["MOTOR_GOFITTS_BEH_SLOPE_LeaveTime"]
+            "動作": [
+                "MOTOR_GOFITTS_BEH_ID1_LeaveTime",
+                "MOTOR_GOFITTS_BEH_ID2_LeaveTime",
+                "MOTOR_GOFITTS_BEH_ID3_LeaveTime",
+                "MOTOR_GOFITTS_BEH_ID4_LeaveTime",
+                "MOTOR_GOFITTS_BEH_ID5_LeaveTime",
+                "MOTOR_GOFITTS_BEH_ID6_LeaveTime"
+                # "MOTOR_GOFITTS_BEH_SLOPE_LeaveTime"
+            ]
         }
         self.using_percentile_prediction = True
         self.max_adjustment = 20 # years
@@ -209,9 +217,6 @@ def predict():
                         platform_features = model.feature_name_
                     else:
                         platform_features = util.init_platform_features()
-
-                    ## Update cognitive domain "動作"
-                    # config.cognitive_domains["動作"] = [ col for col in platform_features if col.startswith("MOTOR_GOFITTS_BEH") ]
 
                     ## Prepare dataframe for prediction
                     DF = pd.DataFrame(index=range(1), columns=scaler.feature_names_in_)
