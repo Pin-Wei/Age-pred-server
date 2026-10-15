@@ -9,6 +9,7 @@ import requests
 import pandas as pd
 from dotenv import load_dotenv
 
+
 class Config:
     def __init__(self):
         self.source_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,7 @@ class Config:
         self.log_dir = os.path.join(self.source_dir, "..", "logs")
         self.log_fn_format = "downloadTextReadingFiles_%Y-%m-%d.log"
 
+
 def setup_logger(config):
     logging.root.handlers = []
     logging.basicConfig(
@@ -34,6 +36,7 @@ def setup_logger(config):
     )
     logger = logging.getLogger(__name__)    
     return logger
+
 
 def list_awaiting_files(config, logger):
     csv_files = glob.glob(os.path.join(config.data_dir, "*Z.csv")) # raw experimental data
@@ -45,14 +48,14 @@ def list_awaiting_files(config, logger):
             pd.read_csv(config.subj_webm_downloaded, header=None)
             .values.flatten().tolist()
         ) 
-    except:
+    except Exception:
         subj_webm_downloaded = []
     try:
         subj_webm_ignored = ( # subjects marked as not needing to download their webm files
             pd.read_csv(config.subj_webm_ignored, header=None)
             .values.flatten().tolist()
         ) 
-    except:
+    except Exception:
         subj_webm_ignored = []
 
     subj_awaiting = list(set(subj_list) - set(subj_webm_downloaded) - set(subj_webm_ignored))
@@ -67,6 +70,7 @@ def list_awaiting_files(config, logger):
                 f.write(f"{subj}\n")
 
     return not_ready_csv_filepaths
+
 
 def get_uploaded_not_downloaded(not_downloaded_tokens, config, logger):
     res = requests.get(
@@ -88,6 +92,7 @@ def get_uploaded_not_downloaded(not_downloaded_tokens, config, logger):
     else:
         logger.error(f"Failed to get media list: {res.status_code}")
         return []
+
 
 def update_is_file_ready(csv_filename, logger):
     res = requests.get(
@@ -127,12 +132,12 @@ if __name__ == "__main__":
     logger.info(f"Start downloading .webm files for {len(not_ready_csv_filepaths)} subjects ...")
 
     not_downloaded_tokens = []
-    for subj, csv_filepath in not_ready_csv_filepaths.items():
+    for subj, csv_filepath in list(not_ready_csv_filepaths.items()):
         df = pd.read_csv(csv_filepath)
         try:
             session_token = df["sessionToken"].values[0]
             not_downloaded_tokens.append(session_token)
-        except:
+        except Exception:
             logger.warning(f"Failed to get sessionToken for {subj}")
             not_ready_csv_filepaths.pop(subj)
             with open(config.subj_webm_ignored, "a") as f:
@@ -158,16 +163,16 @@ if __name__ == "__main__":
                 subjs_to_update.append(subj)
 
             else:
-                logger.info("Failed to download. Status code:", res.status_code)
+                logger.info(f"Failed to download. Status code: {res.status_code}")
 
         for subj in list(set(subjs_to_update)):
             try:
                 csv_filename = os.path.basename(not_ready_csv_filepaths[subj])
                 update_is_file_ready(csv_filename, logger)
 
-            except:
+            except Exception:
                 if subj in not_ready_csv_filepaths:
                     logger.warning(f"'{subj}' possibly should be renamed.")
                 logger.warning(f"Failed to update is_file_ready for '{subj}'.")
     else:
-        logger.info(f"No new files to download.")
+        logger.info("No new files to download.")
