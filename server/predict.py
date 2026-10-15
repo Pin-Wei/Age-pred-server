@@ -16,8 +16,8 @@ from flask import Flask, request, jsonify
 from sklearn.exceptions import InconsistentVersionWarning
 
 import util
-from uvicorn_config import LOGGING_CONFIG
 # from server import setup_logger
+
 
 class Config:
     def __init__(self):
@@ -35,13 +35,13 @@ class Config:
             self.source_dir, "prediction", "model", "<age_abb>"
         ) 
         self.scaler_path_template = os.path.join( # sklearn.preprocessing.MinMaxScaler() object; includes both behavioral and neuroimaging data
-            self.source_dir, "prediction", "scaler", f"scaler_<age_full>.pkl"
+            self.source_dir, "prediction", "scaler", "scaler_<age_full>.pkl"
         ) 
         self.percentiles_path_template = os.path.join(
-            self.source_dir, "prediction", "scaler", f"cognitive_percentiles_<age_full>.pkl"
+            self.source_dir, "prediction", "scaler", "cognitive_percentiles_<age_full>.pkl"
         )
         self.correction_ref_path_template = os.path.join(
-            self.source_dir, "prediction", "model", f"<age_abb>_ref.csv"
+            self.source_dir, "prediction", "model", "<age_abb>_ref.csv"
         )
         self.cognitive_domains = {
             "工作記憶": ["MEMORY_OSPAN_BEH_LETTER_ACCURACY"],
@@ -78,6 +78,7 @@ class Config:
             "test_date": ""
         }        
 
+
 def setup_logger():
     logger = logging.getLogger("werkzeug")
     logger.handlers.clear()
@@ -92,8 +93,10 @@ def setup_logger():
     logger.addHandler(handler)
     return logger
 
+
 def ignore_warnings():
     warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
 
 def correct_age_with_percentile(config, true_age, domain_score_list):    
     ## Define the age group and the corresponding median age of the participant
@@ -128,6 +131,7 @@ def correct_age_with_percentile(config, true_age, domain_score_list):
 
     return corrected_pad, corrected_age
 
+
 def correct_age_with_table(config, true_age, prediction):
     age_abb = 'y' if true_age < 40 else 'o'
     correction_ref = pd.read_csv(config.correction_ref_path_template.replace("<age_abb>", age_abb))
@@ -161,6 +165,7 @@ logger = setup_logger()
 ignore_warnings()
 app = Flask(__name__)
 
+
 @app.route('/predict', methods=['POST'])
 def predict():  
     try:
@@ -186,7 +191,7 @@ def predict():
                         "subject_id": data['id_card']
                     }                    
                 )
-                print(f"\nPost request to /get_integrated_result ...")
+                print("\nPost request to /get_integrated_result ...")
 
                 if feats.status_code != 200:
                     return jsonify({"error": "Failed to get integrated result"}), feats.status_code
@@ -206,7 +211,7 @@ def predict():
                     age_full = 'young' if true_age < 40 else 'old'
                     model = joblib.load(config.model_path_template.replace("<age_abb>", age_abb))
                     scaler = joblib.load(config.scaler_path_template.replace("<age_full>", age_full))             
-                    percentiles = joblib.load(config.percentiles_path_template.replace("<age_full>", age_full))
+                    # percentiles = joblib.load(config.percentiles_path_template.replace("<age_full>", age_full))
 
                     print(f"\n受試者真實年齡: {true_age} --> {age_full}\n")
 
@@ -332,6 +337,7 @@ def predict():
         print("Traceback:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
     
+
 @app.route('/process_textreading', methods=['POST'])
 def process_textreading_proxy(): 
     config = Config()
@@ -354,13 +360,14 @@ def process_textreading_proxy():
                     }), 200
             else:
                 return jsonify({
-                        "error": f"\nFailed to forward internal process_textreading request", 
+                        "error": "\nFailed to forward internal process_textreading request", 
                         "details": resp.text
                     }), resp.status_code
         
     except Exception as e:
         print("\nUnexpected error while forwarding internal request to process_textreading: ", str(e))
         return jsonify({"error": str(e)}), 500
+
 
 @app.errorhandler(400)
 def bad_request(e):
@@ -377,6 +384,7 @@ def bad_request(e):
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({"error": {"type": "not_found", "path": request.path}}), 404
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8888)

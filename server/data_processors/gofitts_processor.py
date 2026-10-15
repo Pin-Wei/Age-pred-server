@@ -6,6 +6,7 @@ import ast
 import numpy as np
 import pandas as pd
 
+
 class GoFittsProcessor:
     def __init__(self, data_dir):
         self.data_dir = data_dir

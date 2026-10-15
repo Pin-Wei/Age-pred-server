@@ -13,9 +13,11 @@ from uvicorn_config import LOGGING_CONFIG
 from server import Config, setup_logger, authenticate_gitlab, update_json_result
 from data_processors.textreading_processor import TextReadingProcessor
 
+
 class SubjectReprocessRequest(BaseModel):
     subject_id: str
     csv_filename: str 
+
 
 def process_text_reading(subject_id: str, csv_filename: str, config, logger) -> dict:
     text_reading_processor = TextReadingProcessor(
@@ -104,6 +106,7 @@ config = Config()
 logger = setup_logger()
 app = FastAPI(docs_url=None)
 
+
 @app.post("/process_textreading")
 async def reprocess_subject(request: SubjectReprocessRequest, token: str = Depends(authenticate_gitlab)):
     subject_id = request.subject_id
@@ -111,6 +114,7 @@ async def reprocess_subject(request: SubjectReprocessRequest, token: str = Depen
     logger.info(f"\nStarting to process CSV file for subject ID: {subject_id} with filename: {csv_filename}")
     result = process_text_reading(subject_id, csv_filename, config, logger)
     return result
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=6666, log_config=LOGGING_CONFIG)

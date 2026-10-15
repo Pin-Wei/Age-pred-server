@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 def init_platform_features():
     return [
         "MOTOR_GOFITTS_BEH_ID1_LeaveTime", 

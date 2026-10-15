@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import util
 
+
 class Config:
     def __init__(self):
         self.source_dir = os.path.dirname(os.path.abspath(__file__))
@@ -22,6 +23,7 @@ class Config:
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
         }
+
 
 def pseudo_predict(config, sid, age, test_date=None):
     if test_date is None:
@@ -42,6 +44,7 @@ def pseudo_predict(config, sid, age, test_date=None):
         return res.json()
     else:
         raise Exception(f"Error {res.status_code}: {res.text}")
+
 
 if __name__ == "__main__":
     load_dotenv()

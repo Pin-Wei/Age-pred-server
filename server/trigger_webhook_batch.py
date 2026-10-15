@@ -7,6 +7,7 @@ from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
+
 class Config:
     def __init__(self):
         self.source_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +31,7 @@ class Config:
             5: self.exp_textreading_id
         }
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-fd", "--from_date", type=str, default=None,
@@ -45,6 +47,7 @@ def parse_args():
     parser.add_argument("-s", "--subj_list", type=str, nargs="*", default=None, 
                         help="Subject IDs to fetch commits for.")
     return parser.parse_args()
+
 
 def get_commit_records(exp_id, config, args):
     '''
@@ -77,6 +80,7 @@ def get_commit_records(exp_id, config, args):
         return csv_names
     else:
         raise ValueError(f"Failed to fetch commit records for project {exp_id}. Status code: {resp.status_code}")
+
 
 if __name__ == "__main__":
     load_dotenv()

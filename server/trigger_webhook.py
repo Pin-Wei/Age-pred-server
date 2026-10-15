@@ -11,7 +11,6 @@ import sys
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
 
 class Config:
     def __init__(self):
@@ -35,6 +34,7 @@ class Config:
 ## ====================================================================================
 
 if __name__ == "__main__":
+    load_dotenv()
     config = Config()
 
     if len(sys.argv) < 2:

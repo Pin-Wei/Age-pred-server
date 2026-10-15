@@ -85,10 +85,10 @@ def send_msg_to_discord(msg, config, logger):
         timeout=30
     )
     if res.status_code == 204:
-        logger.info(f"Successfully sent message to Discord")
+        logger.info("Successfully sent message to Discord")
         return {"status": "ok"}
     else:
-        logger.error(f"Failed to send message to Discord")
+        logger.error("Failed to send message to Discord")
         return {"status": "failed", "code": res.status_code}
 
 
@@ -174,14 +174,14 @@ def process_file(project_name, filepath, config, logger):
     elif project_name == config.exp_exclusion_name:
         result_df = TaskIntegrator().process_subject(subject_id, tasks_to_process=[config.exp_exclusion_name])
     elif project_name == config.exp_textreading_name:
-        logger.info(f"Skipping data processing for TextReading")
+        logger.info("Skipping data processing for TextReading")
         result_df = None
 
     if result_df is not None:
         logger.info(f"Successfully processed data from {project_name}")
         update_json_result(subject_id, result_df, config, logger)
     elif project_name == config.exp_textreading_name:
-        logger.info(f"No results for TextReading")
+        logger.info("No results for TextReading")
     else:
         logger.warning(f"No results found for {project_name}")
 

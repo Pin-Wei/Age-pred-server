@@ -11,6 +11,7 @@ from data_processors.ospan_processor import OspanProcessor
 from data_processors.speechcomp_processor import SpeechcompProcessor
 from data_processors.textreading_processor import TextReadingProcessor
 
+
 class TaskIntegrator:
     def __init__(self):
         self.base_path = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +80,7 @@ class TaskIntegrator:
         combined_result = combined_result.loc[:, ~combined_result.columns.duplicated()]
         
         return combined_result
+
 
 def process_and_format_result(result_df, platform_features):
     missing_marker = -999

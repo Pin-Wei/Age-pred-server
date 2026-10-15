@@ -7,6 +7,7 @@ from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
+
 class Config:
     def __init__(self):
         self.source_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,6 +20,7 @@ class Config:
             "Content-Type": "application/json"
         }
 
+
 def setup_logger():
     logging.root.handlers = []
     logging.basicConfig(
@@ -28,6 +30,7 @@ def setup_logger():
     )
     logger = logging.getLogger(__name__)    
     return logger
+
 
 def execute_process_textreading(subject_id, csv_filename, config, logger): 
     res = requests.post(
@@ -43,6 +46,7 @@ def execute_process_textreading(subject_id, csv_filename, config, logger):
     else:
         raise Exception(f"Failed to send process_textreading request for {subject_id}: {res.status_code}")
 
+
 def get_user_info(subject_id, logger):
     res = requests.get(
         url=f'https://qoca-api.chih-he.dev/user/{subject_id}'
@@ -52,6 +56,7 @@ def get_user_info(subject_id, logger):
         return res.json()
     else:
         raise Exception(f"Failed to retrieve user info for {subject_id}: {res.status_code}")
+
 
 def get_predict_result(age, subject_id, name, test_date, config, logger):
     res = requests.post(
@@ -70,6 +75,7 @@ def get_predict_result(age, subject_id, name, test_date, config, logger):
     else:
         raise Exception(f"Failed to retrieve predict_result for {subject_id}: {res.status_code}")
 
+
 def update_report_status(task_id, status, logger):
     res = requests.put(
         url=f"https://qoca-api.chih-he.dev/tasks/{task_id}", 
@@ -81,6 +87,7 @@ def update_report_status(task_id, status, logger):
         logger.info(f"Successfully updated report status for task #{task_id} to {status}")
     else:
         raise Exception(f"Failed to update report status for task #{task_id}: {res.status_code}")
+
 
 def update_predict_result(exam_id, predict_result, logger):
     res = requests.put(

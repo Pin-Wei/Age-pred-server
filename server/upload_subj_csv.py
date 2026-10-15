@@ -9,9 +9,10 @@ import pandas as pd
 from dotenv import load_dotenv
 load_dotenv()
 
-qoca_token = os.getenv("QOCA_TOKEN")
-qoca_headers = {
-    "Authorization": f"Bearer {qoca_token}"
+
+QOCA_TOKEN = os.getenv("QOCA_TOKEN")
+QOCA_HEADERS = {
+    "Authorization": f"Bearer {QOCA_TOKEN}"
 }
 
 
@@ -48,7 +49,7 @@ def upload_file(file_path: str):
     with open(file_path, 'rb') as f:
         res = requests.post(
             url='https://qoca-api.chih-he.dev/uploadfile', 
-            headers=qoca_headers, 
+            headers=QOCA_HEADERS, 
             files={'file': f},
         )
     
@@ -70,7 +71,7 @@ def test_user_ids(file_path: str, id_col: str = "身分證字號"):
     if failed_ids:
         raise ValueError(f"\nFailed to retrieve user info for following IDs:\n{failed_ids}")
     else:
-        print(f"All user IDs can be retrieved from the API.")
+        print("All user IDs can be retrieved from the API.")
         
 
 def main(file_name: str):

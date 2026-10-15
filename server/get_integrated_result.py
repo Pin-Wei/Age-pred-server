@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from server import Config, setup_logger, authenticate_gitlab
 from uvicorn_config import LOGGING_CONFIG
 
+
 class SubjectDownloadRequest(BaseModel):
     subject_id: str
 
@@ -20,6 +21,7 @@ load_dotenv()
 config = Config()
 logger = setup_logger()
 app = FastAPI(docs_url=None)
+
 
 @app.post("/get_integrated_result")
 async def get_integrated_result(request: SubjectDownloadRequest, token: str = Depends(authenticate_gitlab)):
@@ -33,6 +35,7 @@ async def get_integrated_result(request: SubjectDownloadRequest, token: str = De
         with open(json_file_path, "r") as f:
             integrated_result = json.load(f)
         return {"status": "ok", "integrated_result": integrated_result}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7777, log_config=LOGGING_CONFIG)
