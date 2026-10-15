@@ -36,7 +36,7 @@ def get_all_subject_ids():
     that match the expected pattern ("????s????-?" where each ? is a digit). 
     '''
     subject_ids = set()
-    for fp in glob.glob(os.path.join("integrated_results", "*.json")):
+    for fp in glob.glob(os.path.join(SERVER_DIR, "integrated_results", "*.json")):
         subject_id = os.path.basename(fp).split("_")[0]
         if re.match(r"[\d]{4}s[\d]{4}-[\d]{1}", subject_id): 
             subject_ids.add(subject_id)
@@ -92,7 +92,7 @@ def get_prediction_results(subject_id, args, config, logger):
         test_date = _get_test_date(subject_id, config)
         data = predict(subject_id, config, logger, test_date)
     else:
-        fp = os.path.join("predicted_results", f"{subject_id}_predicted_result.json")
+        fp = os.path.join(SERVER_DIR, "predicted_results", f"{subject_id}_predicted_result.json")
         with open(fp, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -111,7 +111,7 @@ def get_integrated_results(subject_id):
     and returns a dictionary of the results, 
     where any value of -999 is replaced with NaN.
     '''
-    fp = os.path.join("integrated_results", f"{subject_id}_integrated_result.json")
+    fp = os.path.join(SERVER_DIR, "integrated_results", f"{subject_id}_integrated_result.json")
     with open(fp, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -147,7 +147,7 @@ def main():
     df = pd.concat(data_rows, ignore_index=True)
 
     ## Saving the DataFrame to a CSV file:
-    out_path = os.path.join("predicted_results", "tidy_predicted_results.csv")
+    out_path = os.path.join(SERVER_DIR, "predicted_results", "tidy_predicted_results.csv")
     df = df.sort_values(by="Date")
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
     print(f"\n{len(data_rows)} results are organized into a table and saved to:\n{out_path}\n")

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 from pathlib import Path
 import subprocess
 
@@ -11,9 +12,8 @@ import dropbox
 
 class Config:
     def __init__(self):
-        self.python_path = "/home/aclexp/mambaforge/envs/server/bin/python"
-
         server_dir = Path(__file__).resolve().parents[0]
+        # server_dir = Path("/media/data2/pinwei/Age_pred_server/server")
         self.script_path = server_dir / "tidy_predicted_results.py"
         self.local_file_path = server_dir / "predicted_results" / "tidy_predicted_results.csv"
 
@@ -27,7 +27,7 @@ class Config:
 
 def main():
     config = Config()
-    subprocess.run([config.python_path, config.script_path])
+    subprocess.run([sys.executable, config.script_path], check=True)
 
     try:
         dbx = dropbox.Dropbox(
