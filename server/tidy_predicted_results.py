@@ -19,6 +19,7 @@ from server import Config, setup_logger, predict
 
 
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+EXCLUDE_SUBJS = ["6503s0002-3"]
 
 
 def parse_args():
@@ -130,6 +131,10 @@ def main():
     data_rows = []
 
     for subject_id in subject_ids:
+
+        if subject_id in EXCLUDE_SUBJS:
+            continue
+
         ## Executing patches/reprocess_textreading.py if specified:
         if subject_id in args.subjects:
             subprocess.run([
