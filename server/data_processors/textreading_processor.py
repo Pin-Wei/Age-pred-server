@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 
 import numpy as np
 import pandas as pd
@@ -9,6 +8,7 @@ from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import whisper_timestamped as whisper
 from whisper_timestamped.transcribe import write_csv, flatten
+
 
 class TextReadingProcessor:
 
@@ -94,9 +94,16 @@ class TextReadingProcessor:
                     names=["word", "start", "end"]
                 )
                 df["duration"] = df["end"] - df["start"]
-                df["word_length"] = df["word"].astype(str).apply(len)
-                df["syllable_sr"] = df["word_length"] / df["duration"] # speech rate per syllable
-                avg_syllable_sr = df["syllable_sr"].mean() # per csv_file
+                # df["duration"] = df["end"].max() - df["start"].min()  # to include pause times
+                is_valid = df["word"].str.fullmatch(r"[\u4e00-\u9fff0-9]+", na=False) & (df["duration"] > 0)
+                n_syllables = df.loc[is_valid, "word"].str.len().sum()
+                total_duration = df.loc[is_valid, "duration"].sum()
+
+                if n_syllables == 0:
+                    print(f"No valid tokens found in {csv_file}.")
+                    continue
+
+                avg_syllable_sr = n_syllables / total_duration # syllables per second, per csv_file
                 syllable_speech_rates.append(avg_syllable_sr)
 
             except Exception as e:
@@ -113,7 +120,7 @@ class TextReadingProcessor:
         
     def process_subject(self, subject_id):
         audio_files = [
-            f for f in os.listdir(self.input_path) 
+            f for f in os.listdir(self.data_dir) 
             if f.startswith(subject_id) 
             and (f.endswith(".webm") or f.endswith(".wav"))
         ]
@@ -121,7 +128,7 @@ class TextReadingProcessor:
             csv_files = []
             
             for audio_file in audio_files:
-                audio_path = os.path.join(self.input_path, audio_file)
+                audio_path = os.path.join(self.data_dir, audio_file)
                 csv_file = self.generate_csv(audio_path)
 
                 if csv_file:
