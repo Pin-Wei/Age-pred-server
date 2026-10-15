@@ -26,7 +26,7 @@ case $1 in
 			(crontab -l 2>/dev/null; echo "$cmd") | crontab -
 			
 		elif [ $2 == "process_tasks" ]; then
-			cmd="0 */3 * * * $CMD_PROCESS_TASKS"
+			cmd="*/30 * * * * $CMD_PROCESS_TASKS"
 			echo "Add cron job: $cmd"
 			(crontab -l 2>/dev/null; echo "$cmd") | crontab -
 			
