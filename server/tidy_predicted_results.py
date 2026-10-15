@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 # This script reads the predicted_results.json and integrated_results.json files of all participants, and then organizes them into a table
-# The script also executes patches.py if any subject_id is specified as an argument
+# The script also executes patches/reprocess_textreading.py if any subject_id is specified as an argument
 
 # Usage: python tidy_predicted_results.py [-rp] [-s <subject_id1> <subject_id2> ...]
 
 import os
 import re
+import sys
 import json
 import glob
 import argparse
@@ -16,13 +17,18 @@ import pandas as pd
 
 from server import Config, setup_logger, predict
 
+
+SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--subjects", nargs="*", default=[],
-                        help="Subject IDs that need patches to be executed.")
+                        help="Subject IDs whose TextReading need to be re-processed.")
     parser.add_argument("-rp", "--re_predict", action="store_true", 
                         help="Reproduce predicted results for all subjects.")
     return parser.parse_args()
+
 
 def get_all_subject_ids():
     '''
@@ -36,6 +42,7 @@ def get_all_subject_ids():
             subject_ids.add(subject_id)
 
     return sorted(subject_ids)
+
 
 def get_prediction_results(subject_id, args, config, logger):
     '''
@@ -97,6 +104,7 @@ def get_prediction_results(subject_id, args, config, logger):
     else: 
         return _orginize_results(subject_id, data)
 
+
 def get_integrated_results(subject_id):
     '''
     Retrieves the integrated results for a given subject ID,
@@ -112,6 +120,7 @@ def get_integrated_results(subject_id):
         for k, v in data.items()
     }
 
+
 def main():
     config = Config()
     logger = setup_logger()  
@@ -121,9 +130,13 @@ def main():
     data_rows = []
 
     for subject_id in subject_ids:
-        ## Executing patches.py if specified:
+        ## Executing patches/reprocess_textreading.py if specified:
         if subject_id in args.subjects:
-            subprocess.run(["python", "patches.py", subject_id])
+            subprocess.run([
+                sys.executable,
+                os.path.join(SERVER_DIR, "patches", "reprocess_textreading.py"),
+                subject_id,
+            ], check=True)
 
         results = get_prediction_results(subject_id, args, config, logger)
         platform_features = get_integrated_results(subject_id)    
@@ -138,6 +151,7 @@ def main():
     df = df.sort_values(by="Date")
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
     print(f"\n{len(data_rows)} results are organized into a table and saved to:\n{out_path}\n")
+
 
 if __name__ == "__main__":
     main()

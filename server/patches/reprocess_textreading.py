@@ -7,20 +7,22 @@ import os
 import sys
 import glob
 
-import numpy as np
-import pandas as pd
 from dotenv import load_dotenv
 
+FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+MAIN_DIR = os.path.abspath(os.path.join(FILE_DIR, "..")) 
+
+sys.path.append(MAIN_DIR)
 import util
 from server import setup_logger, predict, upload_exam
 from download_textreading_files import update_is_file_ready
 from process_tasks import execute_process_textreading
 
+
 class Config:
     def __init__(self):
-        self.source_dir = os.path.dirname(os.path.abspath(__file__))
-        self.data_dir = os.path.join(self.source_dir, "..", "data")
-        self.integrated_results_dir = os.path.join(self.source_dir, "integrated_results")
+        self.data_dir = os.path.join(MAIN_DIR, "..", "data")
+        self.integrated_results_dir = os.path.join(MAIN_DIR, "integrated_results")
         self.exp_textreading_name = os.getenv("EXPERIMENT_TEXTREADING_NAME")
         self.process_textreading_url = os.getenv("PROCESS_TEXTREADING_URL")
         self.predict_url = os.getenv("PREDICT_URL")
@@ -34,6 +36,7 @@ class Config:
         self.platform_features = util.init_platform_features()
         self.missing_marker = -999
 
+
 def get_aud_csv_files(subject_id, config):
     aud_csv_files = list(
         glob.glob(os.path.join(config.data_dir, config.exp_textreading_name, f"{subject_id}_*_ds.wav.words.csv"))
@@ -41,8 +44,9 @@ def get_aud_csv_files(subject_id, config):
     aud_csv_files = [ f for f in aud_csv_files if "practice_loop" not in f ]  # exclude practice files
     return aud_csv_files
 
+
 if __name__ == "__main__":
-    load_dotenv()
+    load_dotenv(dotenv_path=os.path.join(MAIN_DIR, ".env"))
     config = Config()
     logger = setup_logger()
 
