@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -30,7 +31,7 @@ class OspanProcessor:
         return output.mean().values[0]
 
     def process_subject(self, file_path):
-        if not os.path.exists(file_path):
+        if not Path(file_path).exists():
             print(f"File not found: {file_path}")
             return None
 

@@ -3,6 +3,8 @@
 
 import os
 import sys
+from pathlib import Path
+
 import requests
 import pandas as pd
 
@@ -16,7 +18,7 @@ QOCA_HEADERS = {
 }
 
 
-def load_subj_csv(file_path: str, encoding_types: list[str] = ["utf-8", "cp950", "big5"]):
+def load_subj_csv(file_path: Path, encoding_types: list[str] = ["utf-8", "cp950", "big5"]):
     for encoding in encoding_types:
         try:
             df = pd.read_csv(file_path, dtype=str, encoding=encoding)
@@ -43,7 +45,7 @@ def confirm_date_format(df: pd.DataFrame, date_col: str = "出生年月日"):
         return (df, True)
 
 
-def upload_file(file_path: str):
+def upload_file(file_path: Path):
     print("Uploading file ...")
         
     with open(file_path, 'rb') as f:
@@ -59,7 +61,7 @@ def upload_file(file_path: str):
         raise ValueError(f"Failed to upload file '{file_path}': {res.status_code}")
 
 
-def test_user_ids(file_path: str, id_col: str = "身分證字號"):
+def test_user_ids(file_path: Path, id_col: str = "身分證字號"):
     df = pd.read_csv(file_path, encoding="utf-8")
     subj_ids = df[id_col][-5:]
     print(f"Testing last {len(subj_ids)} user IDs ...")
@@ -75,19 +77,17 @@ def test_user_ids(file_path: str, id_col: str = "身分證字號"):
         
 
 def main(file_name: str):
-    file_path = os.path.join("subj_csv_files", file_name)
-    assert os.path.exists(file_path), f"File {file_path} does not exist :("
-
-    stem, ext = os.path.splitext(file_path)
-    assert ext == ".csv", "Input file must be in CSV format."
+    file_path = Path("subj_csv_files") / file_name
+    assert file_path.exists(), f"File {file_path} does not exist :("
+    assert file_path.suffix == ".csv", "Input file must be in CSV format."
 
     df, encoding_changed = load_subj_csv(file_path)
     df, date_format_changed = confirm_date_format(df)
 
     if encoding_changed or date_format_changed:
-        file_path = f"{stem.rstrip('+')}+{ext}"
+        file_path = file_path.with_name(f"{file_path.stem.rstrip('+')}+{file_path.suffix}")
         df.to_csv(file_path, index=False, encoding="utf-8", lineterminator="\r\n")
-        print(f"Saved new file: {os.path.basename(file_path)}")
+        print(f"Saved new file: {file_path.name}")
     
     upload_file(file_path)
     test_user_ids(file_path)

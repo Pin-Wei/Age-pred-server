@@ -3,7 +3,6 @@
 # see: https://hackmd.io/@XVs32/tmux_script_workspace_setup
 
 SESSION="pinwei"
-CONDA_PATH="/home/aclexp/mambaforge/bin/activate"
 ENV_NAME="server"
 ROOT="/media/data2/pinwei/Age_pred_server/server"
 SCRIPT_NAME_1="server.py"

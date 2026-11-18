@@ -5,6 +5,8 @@
 
 import os
 import json
+from pathlib import Path
+
 import requests
 import pandas as pd
 from datetime import datetime, timezone
@@ -14,10 +16,10 @@ import util
 
 class Config:
     def __init__(self):
-        self.source_dir = os.path.dirname(os.path.abspath(__file__))
-        self.data_path = os.path.join(self.source_dir, "..", "data", "DATA_ses-01_2024-12-05.csv")
-        self.json_path = os.path.join(self.source_dir, "integrated_results", "{}_integrated_result.json")
-        self.table_path = os.path.join(self.source_dir, "predicted_results", "background_predicted_results.csv")
+        self.source_dir = Path(__file__).resolve().parent
+        self.data_path = self.source_dir.parent / "data" / "DATA_ses-01_2024-12-05.csv"
+        self.integrated_results_dir = self.source_dir / "integrated_results" # <sid>_integrated_result.json
+        self.table_path = self.source_dir / "predicted_results" / "background_predicted_results.csv"
         self.predict_url = os.getenv("PREDICT_URL") 
         self.local_headers = {
             "X-GitLab-Token": "tcnl-project",
@@ -63,7 +65,7 @@ if __name__ == "__main__":
         age = row["BASIC_INFO_AGE"]
         features = row[platform_features].to_dict()
 
-        with open(config.json_path.format(sid), "w", encoding="utf-8") as f:
+        with open(config.integrated_results_dir / f"{sid}_integrated_result.json", "w", encoding="utf-8") as f:
             json.dump(features, f, indent=2)
 
         print(F"JSON file saved: {sid}_integrated_result.json")

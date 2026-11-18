@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,17 +12,17 @@ from whisper_timestamped.transcribe import write_csv, flatten
 
 
 class TextReadingProcessor:
-
     def __init__(self, data_dir):
-        self.data_dir = data_dir
-        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        self.data_dir = Path(data_dir)
+        self.base_path = Path(__file__).resolve().parent
 
     def webm2wav(self, audio_file):
-        if ".webm" in audio_file:
-            out_file = audio_file.replace(".webm", ".wav")
+        audio_file = Path(audio_file)
+        if audio_file.suffix == ".webm":
+            out_file = audio_file.with_suffix(".wav")
             os.system(f"ffmpeg -y -i {audio_file} {out_file}")
             print("Converted .webm audio file to .wav format.")
-        elif ".wav" in audio_file:
+        elif audio_file.suffix == ".wav":
             out_file = audio_file
         else:
             raise ValueError("Unsupported audio format. Please provide a .webm or .wav file.")
@@ -41,7 +42,7 @@ class TextReadingProcessor:
         for chunk in chunks:
             processed_audio += chunk
 
-        out_file = audio_file.replace(".wav", "_ds.wav")
+        out_file = audio_file.with_name(f"{audio_file.stem}_ds.wav")
         processed_audio.export(out_file, format="wav")
         print("Successfully removed silence from audio file.")
         return out_file
@@ -64,7 +65,7 @@ class TextReadingProcessor:
             detect_disfluencies=True,
             remove_punctuation_from_words=True
         )
-        csv_file = f"{audio_file}.words.csv"
+        csv_file = audio_file.with_name(f"{audio_file.name}.words.csv")
         with open(csv_file, "w", encoding="utf-8") as csv:
             write_csv(flatten(result["segments"], "words"), file=csv)
         print("Successfully generated transcription labels using Whisper.")
@@ -94,7 +95,6 @@ class TextReadingProcessor:
                     names=["word", "start", "end"]
                 )
                 df["duration"] = df["end"] - df["start"]
-                # df["duration"] = df["end"].max() - df["start"].min()  # to include pause times
                 is_valid = df["word"].str.fullmatch(r"[\u4e00-\u9fff0-9]+", na=False) & (df["duration"] > 0)
                 n_syllables = df.loc[is_valid, "word"].str.len().sum()
                 total_duration = df.loc[is_valid, "duration"].sum()
@@ -120,16 +120,15 @@ class TextReadingProcessor:
         
     def process_subject(self, subject_id):
         audio_files = [
-            f for f in os.listdir(self.data_dir) 
-            if f.startswith(subject_id) 
-            and (f.endswith(".webm") or f.endswith(".wav"))
+            f for f in self.data_dir.iterdir() 
+            if f.name.startswith(subject_id) 
+            and f.suffix in (".webm", ".wav")
         ]
         if audio_files:
             csv_files = []
             
             for audio_file in audio_files:
-                audio_path = os.path.join(self.data_dir, audio_file)
-                csv_file = self.generate_csv(audio_path)
+                csv_file = self.generate_csv(audio_file)
 
                 if csv_file:
                     csv_files.append(csv_file)

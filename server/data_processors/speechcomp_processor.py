@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -7,7 +8,8 @@ class SpeechcompProcessor:
         self.data_dir = data_dir
 
     def process_subject(self, file_path):
-        if not os.path.exists(file_path):
+        file_path = Path(file_path)
+        if not file_path.exists():
             print(f"File not found: {file_path}")
             return None
 
@@ -15,7 +17,7 @@ class SpeechcompProcessor:
         t = pd.read_csv(file_path)
 
         # Get subject ID
-        subject_id = os.path.basename(file_path).split('_')[0]
+        subject_id = file_path.name.split('_')[0]
 
         # Fill NaNs in the 'condition' column with an empty string
         t['condition'] = t['condition'].fillna('')

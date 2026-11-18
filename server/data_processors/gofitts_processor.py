@@ -3,6 +3,8 @@
 
 import os
 import ast
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -13,7 +15,7 @@ class GoFittsProcessor:
         self.id_column = "指定代號"
         self.half_width = 960
         self.half_height = 540
-        self.modified_jar_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "GoFitts_modified.jar")
+        self.modified_jar_path = Path(__file__).resolve().parent / "GoFitts_modified.jar"
 
     def convert_file(self):
         df = pd.read_csv(self.file_path)
@@ -39,9 +41,7 @@ class GoFittsProcessor:
         df["y"] = df["y"].apply(lambda str_arr: [str(int(y + self.half_height)) for y in ast.literal_eval(str_arr)])
         df["t"] = df["t"].apply(lambda str_arr: [str(int(sec * 1000)) for sec in ast.literal_eval(str_arr)])
 
-        output_csv_path = os.path.join(
-            os.path.dirname(self.file_path), f"GoFitts-{self.subject_id}.sd3"
-        )        
+        output_csv_path = self.file_path.parent / f"GoFitts-{self.subject_id}.sd3"
         with open(output_csv_path, "w") as f:
             f.write("TRACE DATA\n")
             f.write("App,self.subject_id,Condition,Session,Group,TaskType,SelectionMethod,Block,Sequence,A,W,Trial,from_x,from_y,to_x,to_y,{t_x_y}\n")
@@ -55,7 +55,7 @@ class GoFittsProcessor:
         return output_csv_path
     
     def parse_with_jar(self, output_csv_path):        
-        if not os.path.isfile(self.modified_jar_path):
+        if not self.modified_jar_path.is_file():
             print("GoFitts_modified.jar not found! You will not be able to convert to csv.")
         else:
             os.system(f"java -jar {self.modified_jar_path} -p {output_csv_path}")
@@ -103,11 +103,11 @@ class GoFittsProcessor:
         print("Generated final summary!")    
 
     def process_subject(self, file_path):
-        self.file_path = file_path
+        self.file_path = Path(file_path)
         output_csv_path = self.convert_file()
         self.parse_with_jar(output_csv_path)
-        seq_summary_path = os.path.join(os.path.dirname(self.file_path), f"GoFitts-{self.subject_id}-sequence-summary.csv")
-        summary_path = os.path.join(os.path.dirname(self.file_path), f"GoFitts-{self.subject_id}-summary.csv")
+        seq_summary_path = self.file_path.parent / f"GoFitts-{self.subject_id}-sequence-summary.csv"
+        summary_path = self.file_path.parent / f"GoFitts-{self.subject_id}-summary.csv"
         self.make_summary(seq_summary_path, summary_path)
         df = pd.read_csv(summary_path)
         df = df.rename(columns={'ID': self.id_column})

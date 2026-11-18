@@ -1,4 +1,5 @@
-import os
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -58,7 +59,7 @@ class ExclusionProcessor:
         return output
 
     def process_subject(self, file_path):
-        if not os.path.exists(file_path):
+        if not Path(file_path).exists():
             print(f"File not found: {file_path}")
             return None
 

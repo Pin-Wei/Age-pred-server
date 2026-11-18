@@ -3,7 +3,7 @@
 SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_NAME="pinwei.service"
 
-# mkdir -p "$SERVICE_DIR"
+mkdir -p "$SERVICE_DIR"
 
 if [ ! -f $SERVICE_DIR/$SERVICE_NAME ]; then
 	cat << EOF > $SERVICE_DIR/$SERVICE_NAME

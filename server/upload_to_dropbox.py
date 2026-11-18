@@ -12,7 +12,7 @@ import dropbox
 
 class Config:
     def __init__(self):
-        server_dir = Path(__file__).resolve().parents[0]
+        server_dir = Path(__file__).resolve().parent
         # server_dir = Path("/media/data2/pinwei/Age_pred_server/server")
         self.script_path = server_dir / "tidy_predicted_results.py"
         self.local_file_path = server_dir / "predicted_results" / "tidy_predicted_results.csv"

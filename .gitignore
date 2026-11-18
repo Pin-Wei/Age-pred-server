@@ -4,9 +4,11 @@
 
 data/*
 logs/
+monitoring/
 server/subj_csv_files/*
 server/predicted_results/*
 server/integrated_results/*
+server/prediction/*
 server/ARCHIVED/
 server/.env
 tmp/

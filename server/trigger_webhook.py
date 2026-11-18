@@ -7,14 +7,15 @@
 
 import os
 import sys
-# import glob
+from pathlib import Path
+
 import requests
 from dotenv import load_dotenv
 
 
 class Config:
     def __init__(self):
-        self.source_dir = os.path.dirname(os.path.abspath(__file__))
+        self.source_dir = Path(__file__).resolve().parent
         self.webhook_url = os.getenv("WEBHOOK_URL")
         self.local_headers = {
             "X-GitLab-Token": "tcnl-project", 
@@ -65,10 +66,8 @@ if __name__ == "__main__":
         }[project_no]
 
         # subj = sys.argv[2]
-        # csv_filepath = glob.glob(os.path.join(
-        #     config.source_dir, "..", "data", project_name, f"{subj}_*Z.csv"
-        # ))[0]
-        # csv_filename = os.path.basename(csv_filepath)
+        # csv_filepath = next((config.source_dir.parent / "data" / project_name).glob(f"{subj}_*Z.csv"))
+        # csv_filename = csv_filepath.name
         # print(f"csv_filename: {csv_filename}")
         csv_filename = sys.argv[2]
 
