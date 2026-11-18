@@ -2,7 +2,8 @@
 
 # Usage: bash cronjob.sh [enable | disable] [download_textreading_files | process_tasks | upload_to_dropbox]
 
-PYTHON="/home/aclexp/mambaforge/envs/server/bin/python"
+# PYTHON="/home/aclexp/mambaforge/envs/server/bin/python"
+PYTHON="/home/pinwei/miniforge3/envs/server/bin/python"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 LOG_DIR="$SCRIPT_DIR/../logs"
 CMD_DOWNLOAD_TEXTREADING_FILES="$PYTHON $SCRIPT_DIR/download_textreading_files.py >> $LOG_DIR/cronjob_download_textreading_files.log 2>&1"
@@ -21,12 +22,12 @@ case $1 in
 		
     enable)
 		if [ $2 == "download_textreading_files" ]; then
-			cmd="0 */1 * * * $CMD_DOWNLOAD_TEXTREADING_FILES"
+			cmd="*/10 * * * * $CMD_DOWNLOAD_TEXTREADING_FILES"
 			echo "Add cron job: $cmd"
 			(crontab -l 2>/dev/null; echo "$cmd") | crontab -
 			
 		elif [ $2 == "process_tasks" ]; then
-			cmd="*/30 * * * * $CMD_PROCESS_TASKS"
+			cmd="*/10 * * * * $CMD_PROCESS_TASKS"
 			echo "Add cron job: $cmd"
 			(crontab -l 2>/dev/null; echo "$cmd") | crontab -
 			
