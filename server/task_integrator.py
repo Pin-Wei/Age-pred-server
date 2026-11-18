@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import glob
+from pathlib import Path
+
 import pandas as pd
 
 from data_processors.gofitts_processor import GoFittsProcessor
@@ -14,8 +15,8 @@ from data_processors.textreading_processor import TextReadingProcessor
 
 class TaskIntegrator:
     def __init__(self):
-        self.base_path = os.path.dirname(os.path.abspath(__file__))
-        self.data_dir = os.path.join(self.base_path, "..", "data")
+        self.base_path = Path(__file__).resolve().parent
+        self.data_dir = self.base_path.parent / "data"
         self.exp_gofitt_name = os.getenv("EXPERIMENT_GOFITT_NAME")
         self.exp_ospan_name = os.getenv("EXPERIMENT_OSPAN_NAME")
         self.exp_speechcomp_name = os.getenv("EXPERIMENT_SPEECHCOMP_NAME")
@@ -24,9 +25,10 @@ class TaskIntegrator:
         self.exp_name_list = [self.exp_gofitt_name, self.exp_ospan_name, self.exp_speechcomp_name, self.exp_exclusion_name, self.exp_textreading_name]
         
     def find_file(self, directory, subject_id, task_name):
+        directory = Path(directory)
         if task_name == self.exp_textreading_name:
             pattern = f"{subject_id}_TextReading_*.webm"
-            files = glob.glob(os.path.join(directory, pattern))
+            files = list(directory.glob(pattern))
         else:
             patterns = [
                 f"{subject_id}_{task_name}_*.csv",
@@ -37,12 +39,18 @@ class TaskIntegrator:
             ]
             files = []
             for pattern in patterns:
-                matched_files = glob.glob(os.path.join(directory, pattern))
-                files.extend(matched_files)        
-        if files:
-            return files[0]
-        else:
+                matched_files = list(directory.glob(pattern))
+                files.extend(matched_files)
+                
+        if len(files) == 0:
             return None
+
+        if len(files) > 1 and (task_name != self.exp_textreading_name): 
+            files = sorted(set(files), key=lambda f: f.stem.split("_")[-1])  # by the timestamp in the file name
+            print(f"Found {len(files)} {task_name} files for subject {subject_id}; using the latest: {files[-1].name}")
+            return files[-1]
+
+        return files[0]
 
     def process_subject(self, subject_id, tasks_to_process=None):          
         results = []
@@ -52,11 +60,11 @@ class TaskIntegrator:
 
         for task in tasks_to_process:
             processor = {
-                self.exp_gofitt_name: GoFittsProcessor(data_dir=os.path.join(self.data_dir, self.exp_gofitt_name)), 
-                self.exp_ospan_name: OspanProcessor(data_dir=os.path.join(self.data_dir, self.exp_ospan_name)),
-                self.exp_speechcomp_name: SpeechcompProcessor(data_dir=os.path.join(self.data_dir, self.exp_speechcomp_name)),
-                self.exp_exclusion_name: ExclusionProcessor(data_dir=os.path.join(self.data_dir, self.exp_exclusion_name)),
-                self.exp_textreading_name: TextReadingProcessor(data_dir=os.path.join(self.data_dir, self.exp_textreading_name))
+                self.exp_gofitt_name: GoFittsProcessor(data_dir=self.data_dir / self.exp_gofitt_name), 
+                self.exp_ospan_name: OspanProcessor(data_dir=self.data_dir / self.exp_ospan_name),
+                self.exp_speechcomp_name: SpeechcompProcessor(data_dir=self.data_dir / self.exp_speechcomp_name),
+                self.exp_exclusion_name: ExclusionProcessor(data_dir=self.data_dir / self.exp_exclusion_name),
+                self.exp_textreading_name: TextReadingProcessor(data_dir=self.data_dir / self.exp_textreading_name)
             }.get(task)
             
             if processor is None:

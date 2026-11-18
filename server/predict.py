@@ -1,48 +1,60 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import json
 import logging
+import os
 import warnings
-from datetime import datetime
+from contextlib import asynccontextmanager
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 import joblib
-import requests
-import numpy as np  
+import numpy as np
 import pandas as pd
+import requests
+import uvicorn
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from fastapi import Depends, FastAPI, HTTPException
+from pydantic import BaseModel
 from sklearn.exceptions import InconsistentVersionWarning
 
 import util
-# from server import setup_logger
+from server import (
+    MISSING_MARKER, 
+    setup_logger, 
+    register_exception_handlers, 
+    authenticate_gitlab, 
+)
+from uvicorn_config import LOGGING_CONFIG
 
 
-class Config:
+AGE_DIVIDE = 40
+MISSING_THRESHOLD = 0.2
+REPLACE_MISSING_WITH = 0.5  # since min-max scaler is used
+MIN_PERCENTILE = 10
+PRED_WITH_PERCENTILE = True
+MAX_ADJUSTMENT = 20  # years
+TOTAL_PARTICIPANTS = 412
+
+
+logger = logging.getLogger(__name__)
+
+
+class PredictConfig:
     def __init__(self):
         self.get_integrated_result_url = os.getenv("GET_INTEGRATED_RESULT_URL")
         self.process_textreading_url = os.getenv("PROCESS_TEXTREADING_URL")
+        self.x_gitlab_token = os.getenv("X_GITLAB_TOKEN", "tcnl-project")
         self.local_headers = {
-            "X-GitLab-Token": "tcnl-project",
+            "X-GitLab-Token": self.x_gitlab_token,
             "Content-Type": "application/json"
         }
-        self.source_dir = os.path.dirname(os.path.abspath(__file__))
-        self.predicted_result_template = os.path.join(
-            self.source_dir, "predicted_results", "<id_card>_predicted_result.json"
-        )
-        self.model_path_template = os.path.join( # only trained on behavioral data
-            self.source_dir, "prediction", "model", "<age_abb>"
-        ) 
-        self.scaler_path_template = os.path.join( # sklearn.preprocessing.MinMaxScaler() object; includes both behavioral and neuroimaging data
-            self.source_dir, "prediction", "scaler", "scaler_<age_full>.pkl"
-        ) 
-        self.percentiles_path_template = os.path.join(
-            self.source_dir, "prediction", "scaler", "cognitive_percentiles_<age_full>.pkl"
-        )
-        self.correction_ref_path_template = os.path.join(
-            self.source_dir, "prediction", "model", "<age_abb>_ref.csv"
-        )
+        self.source_dir = Path(__file__).resolve().parent
+        self.predicted_results_dir = self.source_dir / "predicted_results" # <id_card>_predicted_result.json
+        self.model_dir = self.source_dir / "prediction" / "model" # <age_abb> (only trained on behavioral data); <age_abb>_ref.csv
+        self.scaler_dir = self.source_dir / "prediction" / "scaler" # scaler_<age_full>.pkl (sklearn.preprocessing.MinMaxScaler() object; includes both behavioral and neuroimaging data); cognitive_percentiles_<age_full>.pkl
         self.cognitive_domains = {
             "工作記憶": ["MEMORY_OSPAN_BEH_LETTER_ACCURACY"],
             "情節記憶": [
@@ -61,69 +73,66 @@ class Config:
                 "MOTOR_GOFITTS_BEH_ID6_LeaveTime"
                 # "MOTOR_GOFITTS_BEH_SLOPE_LeaveTime"
             ]
-        }
-        self.using_percentile_prediction = True
-        self.max_adjustment = 20 # years
-        self.brainage_prediction = True
-        self.missing_marker = -999 # marked using update_json_result() in server.py
-        self.replace_missing_with = 0.5 # since min-max scaler is used
-        self.missing_threshold = 0.2
-        self.min_percentile = 10
-        self.metadata = 412
-        self.data = {
-            "age": -1,
-            "features": {},
-            "id_card": "",
-            "name": "", 
-            "test_date": ""
-        }        
+        }      
 
 
-def setup_logger():
-    logger = logging.getLogger("werkzeug")
-    logger.handlers.clear()
-    logger.setLevel(logging.ERROR)
-    logger.propagate = False
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        fmt="%(asctime)s - %(levelname)s - %(message)s", 
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
+class PredictRequest(BaseModel):
+    age: float
+    id_card: str
+    name: str
+    test_date: str
 
 
-def ignore_warnings():
+class TextReadingProxyRequest(BaseModel):
+    subject_id: str
+    csv_filename: str
+
+
+@lru_cache()
+def get_predict_config() -> PredictConfig:
+    load_dotenv()
+    return PredictConfig()
+    
+
+@lru_cache(maxsize=4)
+def load_model_and_scaler(age_abb: str, age_full: str, model_dir: Path, scaler_dir: Path):
     warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+    model = joblib.load(model_dir / age_abb)
+    scaler = joblib.load(scaler_dir / f"scaler_{age_full}.pkl")
+    return model, scaler
 
 
-def correct_age_with_percentile(config, true_age, domain_score_list):    
-    ## Define the age group and the corresponding median age of the participant
+def correct_age_with_percentile(true_age: float, domain_score_list: List[Dict[str, Any]]) -> Tuple[float, float]:    ## Define the age group and the corresponding median age of the participant
     age_label = pd.cut(
         x=[true_age], 
         bins=[-np.inf, 24, 30, 35, 45, 55, 65, np.inf], 
-        labels=['<24', '24-30', '30-35', '35-45', '45-55', '55-65', '>=65']
+        labels=["<24", "24-30", "30-35", "35-45", "45-55", "55-65", ">=65"]
     )[0]
     median_age = {
-        '<24': 20, '24-30': 27.5, '30-35': 32.5, '35-45': 40, '45-55': 50, '55-65': 60, '>=65': 70
+        "<24": 20, 
+        "24-30": 27.5, 
+        "30-35": 32.5, 
+        "35-45": 40, 
+        "45-55": 50, 
+        "55-65": 60, 
+        ">=65": 70
     }[str(age_label)]
 
     ## Calculate weighted domain scores (if valid)
-    valid_weighted_scores = []
-    for item in domain_score_list:
-        if item['score'] != -1:
-            valid_weighted_scores.append((50 - item['score']) / 50) 
-                # if the score is below average, positively increase the predicted age
-                # e.g., if original score is 30, the weighted score is 0.4
+    valid_weighted_scores = [
+        (50 - x["score"]) / 50 for x in domain_score_list
+        if x["score"] != -1
+    ]
+        # if the score is below average, positively increase the predicted age
+        # e.g., if original score is 30, the weighted score is 0.4
 
     ## Calculate the impact of changes of each domain 
     num_valid = len(valid_weighted_scores)
     if num_valid == 0:
         prediction = median_age
     else:
-        impact_per_domain = config.max_adjustment / num_valid 
-            # if max_adjustment == 20, increase or decrease a maximum of 20 years
+        impact_per_domain = MAX_ADJUSTMENT / num_valid 
+            # if MAX_ADJUSTMENT == 20, increase or decrease a maximum of 20 years
         prediction = median_age + sum(valid_weighted_scores) * impact_per_domain
 
     corrected_age = prediction 
@@ -132,259 +141,216 @@ def correct_age_with_percentile(config, true_age, domain_score_list):
     return corrected_pad, corrected_age
 
 
-def correct_age_with_table(config, true_age, prediction):
-    age_abb = 'y' if true_age < 40 else 'o'
-    correction_ref = pd.read_csv(config.correction_ref_path_template.replace("<age_abb>", age_abb))
+def correct_age_with_table(config: PredictConfig, true_age: float, prediction: float) -> Tuple[float, float]:
+    age_abb = "y" if true_age < AGE_DIVIDE else "o"
+    correction_ref = pd.read_csv(config.model_dir / f"{age_abb}_ref.csv")
     df = (
         pd.DataFrame({
-            'real_age': [true_age],
-            'pad': [prediction - true_age]
+            "real_age": [true_age],
+            "pad": [prediction - true_age]
         })
         .assign(
             age_label=lambda x: pd.cut(
-                x=x['real_age'], 
+                x=x["real_age"], 
                 bins=[-1, 24, 30, 35, 45, 55, 65, 100], 
-                labels=['<25', '25-30', '30-35', '35-45', '45-55', '55-65', '>=65']
+                labels=["<25", "25-30", "30-35", "35-45", "45-55", "55-65", ">=65"]
             )
         )
         .assign(
-            meanPAD=lambda x: x['age_label'].map(correction_ref.set_index('group')['meanPAD']),
-            sdPAD=lambda x: x['age_label'].map(correction_ref.set_index('group')['sdPAD'])
+            meanPAD=lambda x: x["age_label"].map(correction_ref.set_index("group")["meanPAD"]),
+            sdPAD=lambda x: x["age_label"].map(correction_ref.set_index("group")["sdPAD"])
         )
     )
-    corrected_pad = (df['pad'].values[0] - df['meanPAD'].values[0]) / df['sdPAD'].values[0]
-    corrected_age = np.array(prediction - corrected_pad) 
+    corrected_pad = float(
+        (df["pad"].values[0] - df["meanPAD"].values[0]) / df["sdPAD"].values[0]
+    )
+    corrected_age = float(prediction - corrected_pad) 
 
     return corrected_pad, corrected_age
 
-## ====================================================================================
 
-load_dotenv()
-config = Config()
-logger = setup_logger()
-ignore_warnings()
-app = Flask(__name__)
-
-
-@app.route('/predict', methods=['POST'])
-def predict():  
+def run_prediction(payload: PredictRequest, config: PredictConfig, timeout: int = 30) -> Dict[str, Any]:
+    logger.info(f"Sending POST request to /get_integrated_result for subject: {payload.id_card}")
     try:
-        config.brainage_prediction = True # initialize to True
+        res = requests.post(
+            url=config.get_integrated_result_url,
+            headers=config.local_headers,
+            json={"subject_id": payload.id_card},
+            timeout=timeout,
+        )
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Request to get_integrated_result failed: {e}",
+        )
 
-        ## Receive request from server.py 
-        data = request.get_json(force=True)
+    if res.status_code != 200:
+        raise HTTPException(
+            status_code=res.status_code,
+            detail=f"Failed to get integrated result: {res.text}",
+        )
 
-        if (not data) or ('age' not in data) or ('id_card' not in data) or ('name' not in data) or ('test_date' not in data):
-            return jsonify({"error": "Invalid input data"}), 400
-        
+    features_dict = res.json().get("integrated_result", {})
+    true_age = payload.age
+    predict_brain_age = (true_age != -1)
+
+    age_abb = "y" if true_age < AGE_DIVIDE else "o"
+    age_full = "young" if true_age < AGE_DIVIDE else "old"
+    logger.info(f"Subject {payload.id_card} true age: {true_age} -> {age_full}")
+
+    model, scaler = load_model_and_scaler(age_abb, age_full, config.model_dir, config.scaler_dir)
+
+    ## Define platform features 
+    if hasattr(model, "feature_names_in_"):
+        platform_features = model.feature_names_in_
+    elif hasattr(model, "feature_name_"):
+        platform_features = model.feature_name_
+    else:
+        platform_features = util.init_platform_features()
+
+    ## Prepare dataframe for prediction
+    df = pd.DataFrame(index=range(1), columns=scaler.feature_names_in_)
+    df.update(pd.DataFrame([features_dict]))
+
+    ## Identify the positions of custom missing marker (e.g., -999; to ignore fields not listed in the json file)
+    data_is_missing = (df == MISSING_MARKER)
+
+    ## Replace missing values with 0 before scaling, and then fill with a specified value (0.5)
+    df = df.astype(float).replace(MISSING_MARKER, np.nan).fillna(0)
+    df_scaled = pd.DataFrame(scaler.transform(df), columns=scaler.feature_names_in_)
+    df_scaled[data_is_missing] = REPLACE_MISSING_WITH
+
+    ## Calculate the average scores for each cognitive domain
+    domain_score_list = []
+    for cog_domain, features in config.cognitive_domains.items():
+
+        ## Find where the features are missing and calculate the missing ratio 
+        feature_is_missing = data_is_missing[features]
+        missing_ratio = feature_is_missing.sum(axis=1) / len(features)
+
+        ## Calculate the average score of the features
+        if missing_ratio.iloc[0] > MISSING_THRESHOLD:
+            predict_brain_age = False
+            domain_score_list.append({"name": cog_domain, "score": -1})
+            logger.warning(f"Missing data in cognitive domain '{cog_domain}' for {payload.id_card}")
         else:
-            config.data.update(data)
-            now = datetime.now()
-            print(f"\n{now.strftime('%Y-%m-%d %H:%M:%S')} Received predict request for subject ID: {data['id_card']}")
-                 
-            try:
-                ## Post request to get integrated_result.json via get_integrated_result.py   
-                feats = requests.post(
-                    url=config.get_integrated_result_url, 
-                    headers=config.local_headers, 
-                    json={
-                        "subject_id": data['id_card']
-                    }                    
-                )
-                print("\nPost request to /get_integrated_result ...")
+            avg_score = df_scaled[features].mean(axis=1).iloc[0]
 
-                if feats.status_code != 200:
-                    return jsonify({"error": "Failed to get integrated result"}), feats.status_code
-                
-                else:
-                    print("Successfully got integrated result.")
-                    result = feats.json()                
-                    config.data["features"] = result.get("integrated_result", {})
-                
-                    ## Get participant's true age
-                    true_age = config.data["age"]
-                    if true_age == -1: # if age is missing, do not predict brain age
-                        config.brainage_prediction = False                    
+            ## Interpolate the average score from (0, 1) to (0, 100)
+            percentile = float(np.interp(x=avg_score, xp=[0, 1], fp=[0, 100]))
 
-                    ## Load stored objects according to participant's true age
-                    age_abb = 'y' if true_age < 40 else 'o'
-                    age_full = 'young' if true_age < 40 else 'old'
-                    model = joblib.load(config.model_path_template.replace("<age_abb>", age_abb))
-                    scaler = joblib.load(config.scaler_path_template.replace("<age_full>", age_full))             
-                    # percentiles = joblib.load(config.percentiles_path_template.replace("<age_full>", age_full))
+            ## Reverse the percentile if the cognitive domain is "動作"
+            if cog_domain == "動作":
+                percentile = 100.0 - percentile
 
-                    print(f"\n受試者真實年齡: {true_age} --> {age_full}\n")
+            ## Avoid showing too low a score
+            if percentile < MIN_PERCENTILE:
+                logger.info(f"Score in '{cog_domain}' below minimum, resetting to {MIN_PERCENTILE}")
+                percentile = float(MIN_PERCENTILE)
 
-                    ## Define platform features 
-                    if hasattr(model, 'feature_names_in_'):
-                        platform_features = model.feature_names_in_
-                    elif hasattr(model, 'feature_name_'):
-                        platform_features = model.feature_name_
-                    else:
-                        platform_features = util.init_platform_features()
+            score_val = int(round(percentile))
+            domain_score_list.append({"name": cog_domain, "score": score_val})
+            logger.info(f"{cog_domain} percentile: {score_val}")
 
-                    ## Prepare dataframe for prediction
-                    DF = pd.DataFrame(index=range(1), columns=scaler.feature_names_in_)
-                    DF.update(pd.DataFrame([config.data["features"]])) 
+    if predict_brain_age:
+        logger.info("Predicting brain age ...")
 
-                    ## Identify the positions of custom missing marker (-999; to ignore fields not listed in the json file)
-                    data_is_missing = DF == config.missing_marker
+        feats_not_scaled = [ f for f in platform_features if f not in df_scaled.columns ]
+        if len(feats_not_scaled) > 0:
+            logger.warning(f"Model features not in the scaler, set to {REPLACE_MISSING_WITH}: {feats_not_scaled}")
+            df_scaled[feats_not_scaled] = REPLACE_MISSING_WITH
 
-                    ## Replace missing values with 0 before scaling
-                    DF = DF.astype(float) 
-                    DF = DF.replace(config.missing_marker, np.nan)
-                    DF = DF.fillna(0)
+        prediction = float(model.predict(df_scaled[platform_features])[0])
+        original_pad = prediction - true_age
 
-                    ## Apply stored MinMaxScaler() to scales the dataset between 0 and 1
-                    DF_scaled = pd.DataFrame(scaler.transform(DF), columns=scaler.feature_names_in_)
+        ## Perform brain-age correction 
+        if PRED_WITH_PERCENTILE:
+            corrected_pad, corrected_age = correct_age_with_percentile(true_age, domain_score_list)
+        else:
+            corrected_pad, corrected_age = correct_age_with_table(config, true_age, prediction)
+    else:
+        logger.warning(f"Brain age prediction skipped for {payload.id_card} due to missing data/age.")
+        original_pad = -1.0
+        corrected_pad = -1.0
+        corrected_age = -1.0
 
-                    ## Fill missing entries with a specified value (0.5)
-                    DF_scaled[data_is_missing] = config.replace_missing_with
+    response = {
+        "id_card": payload.id_card,
+        "name": payload.name,
+        "testDate": payload.test_date,
+        "results": {
+            "brainAge": f"{corrected_age:.2f}",
+            "chronologicalAge": true_age,
+            "originalPAD": f"{original_pad:.2f}",
+            "ageCorrectedPAD": f"{corrected_pad:.2f}",
+        },
+        "cognitiveFunctions": domain_score_list,
+        "meta": {
+            "totalParticipants": TOTAL_PARTICIPANTS,
+        },
+    }
+    logger.info(f"Brain age prediction result for {payload.id_card}: {response['results']['brainAge']}")
+    logger.info(r"‧★,:*:‧\(^o^)/‧:*‧°★*")
 
-                    ## Calculate the average scores for each cognitive domain
-                    domain_score_list = []
-                    for cog_domain, features in config.cognitive_domains.items(): 
+    config.predicted_results_dir.mkdir(parents=True, exist_ok=True)
+    output_path = config.predicted_results_dir / f"{payload.id_card}_predicted_result.json"
+    output_path.write_text(json.dumps(response, ensure_ascii=False, indent=2), encoding="utf-8")
 
-                        ## Find where the features are missing and calculate the missing ratio 
-                        feature_is_missing = data_is_missing[features] 
-                        missing_ratio = feature_is_missing.sum(axis=1) / len(features)
+    return response
 
-                        ## Calculate the average score of the features
-                        if missing_ratio.iloc[0] > config.missing_threshold:                             
-                            config.brainage_prediction = False 
-                            domain_score_list.append({
-                                "name": cog_domain,
-                                "score": -1
-                            })
-                            print(f"Missing data in cognitive domain {cog_domain}")
-                            print("Prediction is not possible for this participant.")
-                        else:
-                            avg_score = DF_scaled[features].mean(axis=1).iloc[0]                            
 
-                            ## Interpolate the average score from (0, 1) to (0, 100)
-                            percentile = np.interp(
-                                x=avg_score, xp=[0, 1], fp=[0, 100] 
-                            )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logger(__name__)
+    cfg = get_predict_config()
+    logger.info("predict service initialized.")
+    yield
 
-                            ## Reverse the percentile if the cognitive domain is "動作"
-                            if cog_domain == "動作":
-                                percentile = 100 - percentile
-                                
-                            ## Avoid showing too low a score
-                            if percentile < config.min_percentile:
-                                print(f"Too low a score in cognitive domain {cog_domain}, reset to {config.min_percentile}")
-                                percentile = config.min_percentile 
-                            
-                            domain_score_list.append({
-                                "name": cog_domain, 
-                                "score": int(round(percentile))
-                            })
-                            print(f"{cog_domain} percentile: {domain_score_list[-1]['score']}")
 
-                    ## Predict brain-age
-                    if config.brainage_prediction:
-                        print("\nPredicting brain age ...")
-                        prediction = float(model.predict(DF_scaled[platform_features])[0])
-                        original_pad = prediction - true_age
+def create_app() -> FastAPI:
+    app = FastAPI(docs_url=None, lifespan=lifespan)
+    register_exception_handlers(app, logger)
 
-                        ## Perform brain-age correction 
-                        if config.using_percentile_prediction:
-                            corrected_pad, corrected_age = correct_age_with_percentile(
-                                config, true_age, domain_score_list
-                            )
-                        else:
-                            corrected_pad, corrected_age = correct_age_with_table(
-                                config, true_age, prediction
-                            )
-                    else:
-                        print("\nPrediction is not possible for this participant.")
-                        prediction = -1
-                        original_pad = -1
-                        corrected_pad = -1
-                        corrected_age = -1   
-
-                    response = {
-                        "id_card": config.data["id_card"],
-                        "name": config.data["name"], 
-                        "testDate": config.data["test_date"], 
-                        "results": {
-                            "brainAge": "{:.2f}".format(corrected_age),
-                            "chronologicalAge": true_age,
-                            "originalPAD": "{:.2f}".format(original_pad),
-                            "ageCorrectedPAD": "{:.2f}".format(corrected_pad)
-                        },
-                        "cognitiveFunctions": domain_score_list,
-                        "meta": {
-                            "totalParticipants": config.metadata
-                        }
-                    }
-                    print(f"腦齡預測結果: {response['results']['brainAge']}")
-                    print(r"‧★,:*:‧\(^o^)/‧:*‧°★*")
-                    print()
-
-                    with open(config.predicted_result_template.replace("<id_card>", config.data["id_card"]), 'w', encoding='utf-8') as f:
-                        json.dump(response, f, ensure_ascii=False)
-
-                    return jsonify(response), 200
-        
-            except requests.RequestException as e:
-                print(f"Error: {e}")
-                return jsonify({"error": f"\nRequest to get_integrated_result failed: {str(e)}"}), 500
-
-    except Exception as e:
-        import traceback
-        print("\nUnexpected error during prediction:", str(e))        
-        print("Traceback:", traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
+    @app.post("/predict")
+    def predict_endpoint(
+        payload: PredictRequest,
+        token: str = Depends(authenticate_gitlab),
+        config: PredictConfig = Depends(get_predict_config),
+    ):
+        logger.info(f"Received /predict request for subject ID: {payload.id_card}")
+        return run_prediction(payload, config)
     
 
-@app.route('/process_textreading', methods=['POST'])
-def process_textreading_proxy(): 
-    config = Config()
-    try:
-        ## Receive def process_textreading request
-        data = request.get_json(force=True)
-        if (not data) or ('subject_id' not in data) or ('csv_filename' not in data):
-            return jsonify({"error": "\nMissing required fields while forwarding internal request to process_textreading"}), 400
-        
-        else:
-            print(f"\nReceived input data at /process_textreading: {data}")
+    @app.post("/process_textreading")
+    def process_textreading_proxy(
+        payload: TextReadingProxyRequest,
+        config: PredictConfig = Depends(get_predict_config),
+    ):
+        logger.info(f"Forwarding /process_textreading request for subject ID: {payload.subject_id}")
+        try:
             resp = requests.post(
-                url=config.process_textreading_url, 
-                headers=config.local_headers, 
-                json=data
-            )      
-            if resp.status_code == 200:
-                return jsonify({
-                        "message": "\nSuccessfully forward internal request to process_textreading"
-                    }), 200
-            else:
-                return jsonify({
-                        "error": "\nFailed to forward internal process_textreading request", 
-                        "details": resp.text
-                    }), resp.status_code
-        
-    except Exception as e:
-        print("\nUnexpected error while forwarding internal request to process_textreading: ", str(e))
-        return jsonify({"error": str(e)}), 500
+                url=config.process_textreading_url,
+                headers=config.local_headers,
+                json=payload.model_dump(),
+                timeout=120,
+            )
+        except requests.RequestException as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to connect to process_textreading service: {e}",
+            )
 
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=resp.status_code,
+                detail=f"Failed to forward process_textreading request: {resp.text}",
+            )
 
-@app.errorhandler(400)
-def bad_request(e):
-    raw = request.get_data(cache=False) or b""
-    b0 = raw[:1]
-    if b0 == b"\x16" or b0 == b"\x80":
-        reason, msg = "tls_to_http", "Client sent TLS/HTTPS to an HTTP endpoint."
-    elif b0 == b"\x00":
-        reason, msg = "invalid_http", "Invalid/legacy HTTP payload."
-    else:
-        reason, msg = "malformed", "Malformed request."
-    return jsonify({"error": {"type": "bad_request", "reason": reason, "message": msg}}), 400
+        return {"message": "Successfully forwarded request to process_textreading", "data": resp.json()}
 
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({"error": {"type": "not_found", "path": request.path}}), 404
+    return app
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8888)
+    app = create_app()
+    uvicorn.run(app, host="0.0.0.0", port=8888, log_config=LOGGING_CONFIG)

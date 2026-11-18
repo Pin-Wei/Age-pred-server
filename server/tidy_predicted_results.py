@@ -5,20 +5,21 @@
 
 # Usage: python tidy_predicted_results.py [-rp] [-s <subject_id1> <subject_id2> ...]
 
-import os
 import re
 import sys
 import json
-import glob
 import argparse
 import subprocess
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 
-from server import Config, setup_logger, predict
+from server import Config, predict
 
 
-SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+SERVER_DIR = Path(__file__).resolve().parent
 EXCLUDE_SUBJS = ["6503s0002-3"]
 
 
@@ -37,15 +38,15 @@ def get_all_subject_ids():
     that match the expected pattern ("????s????-?" where each ? is a digit). 
     '''
     subject_ids = set()
-    for fp in glob.glob(os.path.join(SERVER_DIR, "integrated_results", "*.json")):
-        subject_id = os.path.basename(fp).split("_")[0]
+    for fp in (SERVER_DIR / "integrated_results").glob("*.json"):
+        subject_id = fp.name.split("_")[0]
         if re.match(r"[\d]{4}s[\d]{4}-[\d]{1}", subject_id): 
             subject_ids.add(subject_id)
 
     return sorted(subject_ids)
 
 
-def get_prediction_results(subject_id, args, config, logger):
+def get_prediction_results(subject_id, args, config):
     '''
     Retrieves the prediction results for a given subject ID, 
     and extracts the necessary fields to be organized into a dictionary, 
@@ -63,9 +64,9 @@ def get_prediction_results(subject_id, args, config, logger):
         the files are checked in reverse order of the execution of the experiments.        
         '''
         for exp in config.exp_name_list[::-1]: 
-            fp = glob.glob(os.path.join(config.data_dir, exp, f"{subject_id}_*Z.csv"))
+            fp = list((config.data_dir / exp).glob(f"{subject_id}_*Z.csv"))
             if fp:
-                return os.path.basename(fp[0]).split("_")[2].split(".")[0]
+                return fp[0].name.split("_")[2].split(".")[0]
 
     def _orginize_results(subject_id, data):
         '''
@@ -91,14 +92,14 @@ def get_prediction_results(subject_id, args, config, logger):
         
     if args.re_predict:
         test_date = _get_test_date(subject_id, config)
-        data = predict(subject_id, config, logger, test_date)
+        data = predict(subject_id, config, test_date)
     else:
-        fp = os.path.join(SERVER_DIR, "predicted_results", f"{subject_id}_predicted_result.json")
+        fp = SERVER_DIR / "predicted_results" / f"{subject_id}_predicted_result.json"
         with open(fp, "r", encoding="utf-8") as f:
             data = json.load(f)
 
     if data is None:
-        logger.warning(f"No predicted results found for {subject_id}")
+        print(f"No predicted results found for {subject_id}")
         print("\nBefore continuing, please check if the uploaded subject_id is correct.\nExiting for now ...\n")
         exit(1)
         return {}
@@ -112,7 +113,7 @@ def get_integrated_results(subject_id):
     and returns a dictionary of the results, 
     where any value of -999 is replaced with NaN.
     '''
-    fp = os.path.join(SERVER_DIR, "integrated_results", f"{subject_id}_integrated_result.json")
+    fp = SERVER_DIR / "integrated_results" / f"{subject_id}_integrated_result.json"
     with open(fp, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -123,8 +124,8 @@ def get_integrated_results(subject_id):
 
 
 def main():
+    load_dotenv()
     config = Config()
-    logger = setup_logger()  
     args = parse_args()
 
     subject_ids = get_all_subject_ids()
@@ -137,13 +138,15 @@ def main():
 
         ## Executing patches/reprocess_textreading.py if specified:
         if subject_id in args.subjects:
-            subprocess.run([
+            proc = subprocess.run([
                 sys.executable,
-                os.path.join(SERVER_DIR, "patches", "reprocess_textreading.py"),
+                SERVER_DIR / "patches" / "reprocess_textreading.py",
                 subject_id,
-            ], check=True)
+            ])
+            if proc.returncode != 0:
+                print(f"reprocess_textreading.py failed for {subject_id} (exit code {proc.returncode}); using the existing results.")
 
-        results = get_prediction_results(subject_id, args, config, logger)
+        results = get_prediction_results(subject_id, args, config)
         platform_features = get_integrated_results(subject_id)    
         results.update(platform_features)    
         data_row = pd.DataFrame(results, index=[0])
@@ -152,7 +155,7 @@ def main():
     df = pd.concat(data_rows, ignore_index=True)
 
     ## Saving the DataFrame to a CSV file:
-    out_path = os.path.join(SERVER_DIR, "predicted_results", "tidy_predicted_results.csv")
+    out_path = SERVER_DIR / "predicted_results" / "tidy_predicted_results.csv"
     df = df.sort_values(by="Date")
     df.to_csv(out_path, index=False, encoding="utf-8-sig")
     print(f"\n{len(data_rows)} results are organized into a table and saved to:\n{out_path}\n")

@@ -1,17 +1,28 @@
 #!/usr/bin/env python
 
-import os
-import glob
+import logging
+from contextlib import asynccontextmanager
+from typing import Any, Dict
 
-import uvicorn
 import pandas as pd
-from dotenv import load_dotenv
-from fastapi import Depends, FastAPI
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
-from uvicorn_config import LOGGING_CONFIG
-from server import Config, setup_logger, authenticate_gitlab, update_json_result
 from data_processors.textreading_processor import TextReadingProcessor
+from server import (
+    MISSING_MARKER, 
+    Config, 
+    get_config, 
+    setup_logger, 
+    register_exception_handlers, 
+    authenticate_gitlab, 
+    update_json_result
+)
+from uvicorn_config import LOGGING_CONFIG
+
+
+logger = logging.getLogger(__name__)
 
 
 class SubjectReprocessRequest(BaseModel):
@@ -19,10 +30,9 @@ class SubjectReprocessRequest(BaseModel):
     csv_filename: str 
 
 
-def process_text_reading(subject_id: str, csv_filename: str, config, logger) -> dict:
-    text_reading_processor = TextReadingProcessor(
-        data_dir=os.path.join(config.data_dir, config.exp_textreading_name)
-    )
+def process_text_reading(subject_id: str, csv_filename: str, config: Config) -> Dict[str, Any]:
+    textreading_dir = config.data_dir / config.exp_textreading_name
+    text_reading_processor = TextReadingProcessor(data_dir=textreading_dir)
     result = {
         "status": "error",
         "message": "",
@@ -31,90 +41,119 @@ def process_text_reading(subject_id: str, csv_filename: str, config, logger) -> 
         "success": False,
         "csv_filename": csv_filename
     }    
-    csv_path = os.path.join(config.data_dir, config.exp_textreading_name, csv_filename)
+    csv_path = textreading_dir / csv_filename
     
-    if not os.path.exists(csv_path):
+    if not csv_path.exists():
         result["message"] = f"CSV file not found: {csv_filename}"
+        result["error_code"] = 404
         return result
-    else:        
-        try:
-            df = pd.read_csv(csv_path)
-            test_date = df['date'].iloc[0]  # e.g., 2024-10-29_11h04.28.020
-            logger.info(f"Test date from CSV: {test_date}")
-            
-            pattern = f"{subject_id}_TextReading_{test_date}_recording_mic_*.webm"
-            audio_files = list(glob.glob(os.path.join(config.data_dir, config.exp_textreading_name, pattern)))
-            audio_files = [ f for f in audio_files if "practice_loop" not in f ]  # exclude practice files
 
-            if not audio_files:
-                result["message"] = f"No audio files found for subject {subject_id} on date {test_date}"
-                return result
-            else:
-                logger.info(f"Found {len(audio_files)} audio files for subject {subject_id} on date {test_date}")
-                result["files_processed"] = [ os.path.basename(f) for f in audio_files ]
-
-                csv_files = []
-                for audio_file in audio_files:
-                    logger.info(f"\nProcessing audio file: {audio_file}")
-                    try:
-                        csv_file = text_reading_processor.generate_csv(audio_file)
-                        if csv_file:
-                            csv_files.append(csv_file)
-                    except Exception as e:
-                        logger.error(f"\nError processing audio file {audio_file}: {str(e)}")
-
-                if csv_files:
-                    try:
-                        mean_speech_rate = text_reading_processor.calculate_mean_syllable_speech_rate(csv_files)
-
-                        if mean_speech_rate is None:
-                            result["message"] = "Failed to calculate mean speech rate. "
-                        elif pd.isna(mean_speech_rate) or mean_speech_rate == float('inf'):
-                            mean_speech_rate = config.missing_marker
-                            logger.warning(f"\nInvalid mean speech rate for subject {subject_id}: {mean_speech_rate}")
-                        else:
-                            logger.info(f"\nMean speech rate for subject {subject_id}: {mean_speech_rate}")
-                            result_df = pd.DataFrame({
-                                'ID': [subject_id],
-                                'LANGUAGE_READING_BEH_NULL_MeanSR': [mean_speech_rate]
-                            })
-                            update_json_result(subject_id, result_df, config, logger)
-                            logger.info(f"\nDone processing for subject {subject_id}!\n")
-                            
-                            result.update({
-                                "status": "success",
-                                "message": "Successfully processed audio files and calculated mean speech rate.",
-                                "mean_speech_rate": mean_speech_rate,
-                                "success": True
-                            })
-                            
-                    except Exception as e:
-                        result["message"] = f"Error in calculating mean speech rate: {str(e)}"
-                
-                else:
-                    result["message"] = f"No CSV files generated for subject {subject_id}"
-                    return result
-                
-        except Exception as e:
-            result["message"] = f"Failed to read CSV file: {str(e)}"
+    try:
+        df = pd.read_csv(csv_path)
+        if df.empty or "date" not in df.columns:
+            result["message"] = f"CSV file {csv_filename} is empty or missing 'date' column"
+            result["error_code"] = 422
             return result
 
-## ====================================================================================
+        test_date = df['date'].iloc[0]  # e.g., 2024-10-29_11h04.28.020
+        logger.info(f"Test date from CSV: {test_date}")
+        
+        pattern = f"{subject_id}_TextReading_{test_date}_recording_mic_*.webm"
+        webm_files = [ 
+            f for f in textreading_dir.glob(pattern) 
+            if "practice_loop" not in f.name  # exclude practice files
+        ]
 
-load_dotenv()
-config = Config()
-logger = setup_logger()
-app = FastAPI(docs_url=None)
+        if not webm_files:
+            result["message"] = f"No audio files found for subject {subject_id} on date {test_date}"
+            result["error_code"] = 404
+            return result
+
+        logger.info(f"Found {len(webm_files)} audio files for subject {subject_id} on date {test_date}")
+        result["files_processed"] = [ f.name for f in webm_files ]
+        csv_files = []
+
+        for webm_file in webm_files:
+            logger.info(f"\nProcessing audio file: {webm_file.name}")
+            try:
+                csv_file = text_reading_processor.generate_csv(webm_file)
+                if csv_file:
+                    csv_files.append(csv_file)
+            except Exception as e:
+                logger.error(f"\nFailed to process file {webm_file.name}: {str(e)}")
+
+        if len(csv_files) == 0:
+            result["message"] = f"No CSV files generated for subject {subject_id}"
+            result["error_code"] = 422
+            return result
+
+        mean_speech_rate = text_reading_processor.calculate_mean_syllable_speech_rate(csv_files)
+
+        if mean_speech_rate is None:
+            result["message"] = f"Failed to calculate mean speech rate for subject {subject_id}."
+            result["error_code"] = 422
+            return result
+
+        if pd.isna(mean_speech_rate) or mean_speech_rate in (float("inf"), float("-inf")):
+            result["message"] = f"Invalid mean speech rate for subject {subject_id}: {mean_speech_rate}"
+            result["error_code"] = 422
+            return result
+
+        logger.info(f"\nMean speech rate for subject {subject_id}: {mean_speech_rate}")
+        result_df = pd.DataFrame({
+            'ID': [subject_id],
+            'LANGUAGE_READING_BEH_NULL_MeanSR': [mean_speech_rate]
+        })
+        update_json_result(subject_id, result_df, config)
+        logger.info(f"\nDone processing for subject {subject_id}!\n")
+        
+        result.update({
+            "status": "success",
+            "message": "Successfully processed audio files and calculated mean speech rate.",
+            "mean_speech_rate": mean_speech_rate,
+            "success": True
+        })
+        return result
+
+    except Exception as e:
+        result["message"] = f"Error processing text reading for {subject_id}: {e}"
+        result["error_code"] = 500
+        return result
 
 
-@app.post("/process_textreading")
-async def reprocess_subject(request: SubjectReprocessRequest, token: str = Depends(authenticate_gitlab)):
-    subject_id = request.subject_id
-    csv_filename = request.csv_filename    
-    logger.info(f"\nStarting to process CSV file for subject ID: {subject_id} with filename: {csv_filename}")
-    result = process_text_reading(subject_id, csv_filename, config, logger)
-    return result
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logger(__name__)
+    cfg = get_config()
+    logger.info("process_textreading service initialized.")
+    yield
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(docs_url=None, lifespan=lifespan)
+    register_exception_handlers(app, logger)
+
+    @app.post("/process_textreading")
+    def reprocess_subject(
+        request: SubjectReprocessRequest,
+        token: str = Depends(authenticate_gitlab),
+        config: Config = Depends(get_config),
+    ):
+        logger.info(
+            f"Starting to process CSV file for subject ID: {request.subject_id} "
+            f"with filename: {request.csv_filename}"
+        )
+        result = process_text_reading(request.subject_id, request.csv_filename, config)
+
+        if not result["success"]:
+            status_code = result.pop("error_code", 422)
+            raise HTTPException(status_code=status_code, detail=result["message"])
+
+        return result
+
+    return app
 
 
 if __name__ == "__main__":
+    app = create_app()
     uvicorn.run(app, host="0.0.0.0", port=6666, log_config=LOGGING_CONFIG)

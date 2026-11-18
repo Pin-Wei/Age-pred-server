@@ -9,15 +9,15 @@
 
 import os
 import sys
-import glob
+from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
 
-FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-MAIN_DIR = os.path.abspath(os.path.join(FILE_DIR, "..")) 
+FILE_DIR = Path(__file__).resolve().parent
+MAIN_DIR = FILE_DIR.parent
 
-sys.path.append(MAIN_DIR)
+sys.path.append(str(MAIN_DIR))
 import util
 from data_processors.textreading_processor import TextReadingProcessor
 from server import setup_logger, update_json_result
@@ -26,9 +26,9 @@ from server import setup_logger, update_json_result
 class Config:
     def __init__(self):
         self.exp_textreading_name = os.getenv("EXPERIMENT_TEXTREADING_NAME")
-        self.data_dir = os.path.join(MAIN_DIR, "..", "data", self.exp_textreading_name)
-        self.integrated_results_dir = os.path.join(MAIN_DIR, "integrated_results")
-        self.tidy_predicted_results = os.path.join(MAIN_DIR, "predicted_results", "tidy_predicted_results.csv")
+        self.data_dir = MAIN_DIR.parent / "data" / self.exp_textreading_name
+        self.integrated_results_dir = MAIN_DIR / "integrated_results"
+        self.tidy_predicted_results = MAIN_DIR / "predicted_results" / "tidy_predicted_results.csv"
         self.col_name = "LANGUAGE_READING_BEH_NULL_MeanSR"
         self.missing_marker = -999
         self.platform_features = util.init_platform_features()
@@ -44,12 +44,11 @@ def main():
     for sid, session in zip(df["SID"], df["Session"]):
         subject_id = f"{sid}-{session}"
         aud_csv_files = [ 
-            f for f in glob.glob(
-                os.path.join(config.data_dir, f"{subject_id}_*_ds.wav.words.csv")
-            ) if "practice_loop" not in f
+            f for f in config.data_dir.glob(f"{subject_id}_*_ds.wav.words.csv")
+            if "practice_loop" not in f.name
         ]
 
-        # sessions = sorted({ os.path.basename(f).split("_recording_mic_")[0] for f in aud_csv_files })
+        # sessions = sorted({ f.name.split("_recording_mic_")[0] for f in aud_csv_files })
         # if len(sessions) > 1:
         #     print(f"{subject_id}: {len(sessions)} test dates found")
         #     exit()
@@ -65,7 +64,7 @@ def main():
                 "ID": [subject_id],
                 config.col_name: [mean_speech_rate]
             })
-            update_json_result(subject_id, result_df, config, logger)
+            update_json_result(subject_id, result_df, config)
 
     df[config.col_name] = new_scores
     df.to_csv(config.tidy_predicted_results, index=False, encoding="utf-8-sig")
@@ -75,5 +74,5 @@ def main():
 
 
 if __name__ == "__main__":
-    load_dotenv(dotenv_path=os.path.join(MAIN_DIR, ".env"))
+    load_dotenv(dotenv_path=MAIN_DIR / ".env")
     main()

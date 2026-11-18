@@ -4,15 +4,17 @@ import os
 import argparse
 import subprocess
 from datetime import datetime
+from pathlib import Path
+
 import requests
 from dotenv import load_dotenv
 
 
 class Config:
     def __init__(self):
-        self.source_dir = os.path.dirname(os.path.abspath(__file__))
-        self.log_dir = os.path.join(self.source_dir, "..", "logs")
-        self.log_file = os.path.join(self.log_dir, f"downloadData_{datetime.now().strftime('%Y-%m-%d')}.log")
+        self.source_dir = Path(__file__).resolve().parent
+        self.log_dir = self.source_dir.parent / "logs"
+        self.log_file = self.log_dir / f"downloadData_{datetime.now().strftime('%Y-%m-%d')}.log"
         self.gitlab_commit_url = "https://gitlab.pavlovia.org/api/v4/projects/{}/repository/commits?ref_name=master{}"
         self.gitlab_token = os.getenv("GITLAB_TOKEN")
         self.gitlab_headers = {
@@ -64,7 +66,7 @@ def get_commit_records(exp_id, config, args):
     if args.per_page is not None:
         inqury += f"&per_page={args.per_page}"
     else:
-        inqury = "&per_page=100" # default
+        inqury += "&per_page=100" # default
 
     targ_url = config.gitlab_commit_url.format(exp_id, inqury)
     print(f"Fetching commit records from:\n{targ_url}\n")
@@ -106,6 +108,7 @@ if __name__ == "__main__":
                 cmd = ["python", "trigger_webhook.py", str(exp_no), csv_name]
                 subprocess.run(cmd, capture_output=True, text=True, check=True)
                 log_msg.append(" ".join(cmd) + "\n")
+
     finally:
         with open(config.log_file, "w") as f:
             f.writelines(log_msg)

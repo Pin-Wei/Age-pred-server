@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 
 # This script is used to re-process text reading files and was called by the tidy_predicted_results.py
-# Usage: python patches.py <subject_id>
+# Usage: python patches/reprocess_textreading.py <subject_id>
 
 import os
 import sys
-import glob
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-MAIN_DIR = os.path.abspath(os.path.join(FILE_DIR, "..")) 
+FILE_DIR = Path(__file__).resolve().parent
+MAIN_DIR = FILE_DIR.parent
 
-sys.path.append(MAIN_DIR)
+sys.path.append(str(MAIN_DIR))
 import util
 from server import setup_logger, predict, upload_exam
 from download_textreading_files import update_is_file_ready
@@ -21,8 +21,8 @@ from process_tasks import execute_process_textreading
 
 class Config:
     def __init__(self):
-        self.data_dir = os.path.join(MAIN_DIR, "..", "data")
-        self.integrated_results_dir = os.path.join(MAIN_DIR, "integrated_results")
+        self.data_dir = MAIN_DIR.parent / "data"
+        self.integrated_results_dir = MAIN_DIR / "integrated_results"
         self.exp_textreading_name = os.getenv("EXPERIMENT_TEXTREADING_NAME")
         self.process_textreading_url = os.getenv("PROCESS_TEXTREADING_URL")
         self.predict_url = os.getenv("PREDICT_URL")
@@ -30,6 +30,7 @@ class Config:
             "X-GitLab-Token": "tcnl-project",
             "Content-Type": "application/json"
         }
+        self.qoca_url = (os.getenv("QOCA_URL") or "https://qoca-api.chih-he.dev").rstrip("/")
         self.qoca_headers = {
             "Content-Type": "application/json"
         }
@@ -39,14 +40,14 @@ class Config:
 
 def get_aud_csv_files(subject_id, config):
     aud_csv_files = list(
-        glob.glob(os.path.join(config.data_dir, config.exp_textreading_name, f"{subject_id}_*_ds.wav.words.csv"))
+        (config.data_dir / config.exp_textreading_name).glob(f"{subject_id}_*_ds.wav.words.csv")
     )
-    aud_csv_files = [ f for f in aud_csv_files if "practice_loop" not in f ]  # exclude practice files
+    aud_csv_files = [ f for f in aud_csv_files if "practice_loop" not in f.name ]  # exclude practice files
     return aud_csv_files
 
 
 if __name__ == "__main__":
-    load_dotenv(dotenv_path=os.path.join(MAIN_DIR, ".env"))
+    load_dotenv(dotenv_path=MAIN_DIR / ".env")
     config = Config()
     logger = setup_logger()
 
@@ -54,13 +55,13 @@ if __name__ == "__main__":
     print(f"\n---  {subject_id} ---\n")
 
     ## Check if text_reading files exist:
-    main_csv_files = glob.glob(os.path.join(config.data_dir, config.exp_textreading_name, f"{subject_id}_*Z.csv"))
+    main_csv_files = list((config.data_dir / config.exp_textreading_name).glob(f"{subject_id}_*Z.csv"))
     if not main_csv_files:
         logger.warning("No text_reading files found. Goodbye :-O")
         sys.exit(1)
 
     ## In case is_file_ready has not been marked as 1:
-    csv_filename = os.path.basename(main_csv_files[0])
+    csv_filename = sorted(main_csv_files, key=lambda f: f.stem.split("_")[-1])[-1].name  # the latest one
     update_is_file_ready(csv_filename, logger)
 
     ## Process text_reading files if needed:
@@ -78,10 +79,11 @@ if __name__ == "__main__":
         sys.exit(1)
 
     ## Re-generate predict result:
-    predict_result = predict(subject_id, config, logger)
+    test_date = Path(csv_filename).stem.split("_")[-1]
+    predict_result = predict(subject_id, config, test_date=test_date)
 
     if predict_result is not None:
-        exam_id = upload_exam(predict_result, config, logger)
+        exam_id = upload_exam(predict_result, config)
         logger.info("Goodbye :-)")
     else:
         logger.warning("Failed to produce predict_result. Goodbye :-(")
