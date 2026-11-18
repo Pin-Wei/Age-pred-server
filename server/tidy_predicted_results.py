@@ -20,7 +20,7 @@ from server import Config, predict
 
 
 SERVER_DIR = Path(__file__).resolve().parent
-EXCLUDE_SUBJS = ["6503s0002-3"]
+EXCLUDE_SUBJS = []  # "6503s0002-3"
 
 
 def parse_args():
