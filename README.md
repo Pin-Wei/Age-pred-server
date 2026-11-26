@@ -33,7 +33,7 @@ The backend is organized around four independent FastAPI + Uvicorn microservices
 
 - **Scheduled Backup (`upload_to_dropbox.py`)**: Runs weekly on `Mondays` at `08:00`via`cronjob.sh`.
 
-## 3. Cognitive Task Processors (`server/data_processors/`)
+## 3. Cognitive Task Processors
 Each Pavlovia task is parsed by a dedicated processor module under `server/data_processors/`:
 
 | Processor | Cognitive Domain | Input & Key Columns | Extracted Output Features |
@@ -44,7 +44,7 @@ Each Pavlovia task is parsed by a dedicated processor module under `server/data_
 | [`textreading_processor.py`](https://github.com/Pin-Wei/Age-pred-server/blob/main/server/data_processors/textreading_processor.py) | Language Production (`語言產出`) | `.webm` or `.wav` recordings → `ffmpeg` conversion → `pydub` silence removal (`*_ds.wav`) → `whisper-timestamped` (`base` Chinese model → `*.words.csv`) | `mean_speech_rate` (`LANGUAGE_READING_BEH_NULL_MeanSR`, syllables/sec computed over `[\u4e00-\u9fff0-9]+`) |
 | [`gofitts_processor.py`](https://github.com/Pin-Wei/Age-pred-server/blob/main/server/data_processors/gofitts_processor.py) | Motor Function (`動作`) | PsychoPy CSV (`指定代號`, `sequence_loop.thisN`, `trial_loop.thisN`, `from`, `to`, `mouse.x`, `mouse.y`, `mouse.time`, `w`, `a`, `leave_time`) → `.sd3` → `java -jar GoFitts_modified.jar -p` | `GoFitts-{subject_id}-summary.csv` with `GOFITTS_BEH_ID{0..n}_{LeaveTime,PointTime,Throughput}` and `GOFITTS_BEH_SLOPE_{LeaveTime,PointTime,Throughput}` |
 
-## 4. Brain-Age Prediction & Calibration (`server/predict.py`)
+## 4. Brain-Age Prediction & Calibration
 `predict.py` loads age-stratified behavioral models and scalers from [`server/prediction/model/`](https://github.com/Pin-Wei/Age-pred-server/tree/main/server/prediction/model) and [`server/prediction/scaler/`](https://github.com/Pin-Wei/Age-pred-server/tree/main/server/prediction/scaler):
 
 - **Age Stratification (`AGE_DIVIDE = 40`)**:
